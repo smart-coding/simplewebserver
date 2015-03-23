@@ -54,7 +54,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				}
 				// 先得到请求头信息
 				for(int i=1;i<httpStr.length;i++){
-					header.put(httpStr[i].split(":")[0], httpStr[i].split(":")[1].substring(1));
+					header.put(httpStr[i].split(":")[0], httpStr[i].substring(httpStr[i].indexOf(":")+2));
 				} 
 				String paramStr=null;
 				if(method==HttpMethod.GET){
@@ -159,7 +159,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 						while((tstr=bin.readLine())!=null && !"".equals(tstr)){
 							sb2.append(tstr+"\r\n");
 							if(tstr.indexOf(":")!=-1){
-								header.put(tstr.split(":")[0], tstr.split(":")[1].substring(1));
+								header.put(tstr.split(":")[0], tstr.substring(tstr.indexOf(":")+2));
 							}
 						}
 					} catch (IOException e) {
