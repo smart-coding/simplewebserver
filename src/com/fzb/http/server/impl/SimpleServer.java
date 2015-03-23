@@ -13,9 +13,11 @@ import java.util.Properties;
 import java.util.Set;
 
 import com.fzb.http.kit.PathKit;
+import com.fzb.http.server.Controller;
 import com.fzb.http.server.HttpRequestMethod;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
+import com.fzb.http.server.Router;
 import com.fzb.http.server.codec.impl.HttpDecoder;
 
 public class SimpleServer implements ISocketServer{
@@ -24,6 +26,9 @@ public class SimpleServer implements ISocketServer{
 	private Selector selector;
 	@Override
 	public void listener() {
+		//config router
+		Router.getInstance().addMapper("/user", MySimpleController.class);
+		
 		HttpDecoder request=new HttpDecoder();
 		while (true) {
 			try {
@@ -47,7 +52,7 @@ public class SimpleServer implements ISocketServer{
 						channel=(SocketChannel) key.channel();
 						if(request.doDecode(channel)){
 							HttpResponse response = new SimpleHttpResponse(channel, request);
-							HttpRequestMethod sim = new MySimpleAction();
+							HttpRequestMethod sim = new Controller();
 							sim.doGet(request, response);
 							// 渲染错误页面
 							if(!channel.socket().isClosed()){

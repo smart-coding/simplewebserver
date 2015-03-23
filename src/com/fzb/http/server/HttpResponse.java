@@ -6,6 +6,7 @@ import java.io.OutputStream;
 public interface HttpResponse {
 
 	void wirteFile(File file);
+	void renderHtml(String urlPath);
 	void renderJson(Object json);
 	OutputStream getWirter();
 	void setHeader(String key,String value);

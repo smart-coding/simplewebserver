@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import com.fzb.common.util.IOUtil;
+import com.fzb.http.kit.PathKit;
 import com.fzb.http.mimetype.MimeTypeUtil;
 import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpResponse;
@@ -143,6 +144,11 @@ public class SimpleHttpResponse implements HttpResponse{
 	@Override
 	public void renderError(int errorCode) {
 		renderByErrorStatusCode(errorCode);
+	}
+
+	@Override
+	public void renderHtml(String urlPath) {
+		wirteFile(new File(PathKit.getStaticPath()+urlPath));
 	}
 	
 }

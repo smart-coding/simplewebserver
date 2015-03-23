@@ -175,7 +175,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					File file=new File(PathKit.getRootPath()+"/temp/"+fileName);
 					files.put(inputName, file);
 					int length1=sb2.toString().split("\r\n")[0].getBytes().length+new String("\r\n").getBytes().length;
-					int length2=sb2.toString().getBytes().length;
+					int length2=sb2.toString().getBytes().length+2;
 					int dataLength=Integer.parseInt(header.get("Content-Length"))-length1-length2-split.getBytes().length;
 					IOUtil.writeBytesToFile(HexaConversionUtil.subByts(dataBuffer.array(), length2, dataLength), file);
 					paramMap=new HashMap<String,String[]>();
