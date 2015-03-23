@@ -9,4 +9,5 @@ public interface HttpResponse {
 	void renderJson(Object json);
 	OutputStream getWirter();
 	void setHeader(String key,String value);
+	void renderError(int errorCode);
 }

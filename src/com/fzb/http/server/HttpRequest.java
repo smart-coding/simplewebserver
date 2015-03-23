@@ -1,6 +1,10 @@
 package com.fzb.http.server;
 
+import java.io.File;
 import java.util.Map;
+
+import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.session.HttpSession;
 
 public interface HttpRequest {
 
@@ -10,5 +14,8 @@ public interface HttpRequest {
 	String getUrl();
 	String getRealPath();
 	HttpMethod getMethod();
-	
+	Cookie[] getCookies();
+	HttpSession getSession();
+	String getParaToStr(String key);
+	File getFile(String key);
 }
