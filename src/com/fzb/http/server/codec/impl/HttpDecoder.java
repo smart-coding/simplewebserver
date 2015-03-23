@@ -85,17 +85,21 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				// deal with cookie
 				if(header.get("Cookie")!=null){
 					cookies=Cookie.saxToCookie(header.get("Cookie").toString());
-					if(SessionUtil.sessionMap.get(cookies[0].getValue())==null){
+					if(Cookie.getJSessionId(header.get("Cookie").toString())==null){
+						Cookie[] tcookies=new Cookie[cookies.length+1];
+						for(int i=0;i<cookies.length;i++){
+							tcookies[i]=cookies[i];
+						}
 						// new cookie
-						cookies=new Cookie[1];
 						String jsessionid=UUID.randomUUID().toString();
 						Cookie cookie=new Cookie(true);
-						cookie.setName("JSESSIONID");
+						cookie.setName(Cookie.JSESSIONID);
 						cookie.setPath("/");
 						cookie.setValue(jsessionid);
-						cookies[0]=cookie;
+						tcookies[cookies.length]=cookie;
+						cookies=tcookies;
 						session=new HttpSession(jsessionid);
-						SessionUtil.sessionMap.put(cookies[0].getValue(), session);
+						SessionUtil.sessionMap.put(jsessionid, session);
 					}
 					else{
 						session=SessionUtil.getSessionById(cookies[0].getValue());
@@ -105,13 +109,12 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					cookies=new Cookie[1];
 					Cookie cookie=new Cookie(true);
 					String jsessionid=UUID.randomUUID().toString();
-					cookie.setName("JSESSIONID");
+					cookie.setName(Cookie.JSESSIONID);
 					cookie.setPath("/");
 					cookie.setValue(jsessionid);
 					cookies[0]=cookie;
 					session=new HttpSession(jsessionid);
 					SessionUtil.sessionMap.put(cookies[0].getValue(), session);
-					
 				}
 	 		}
 		}

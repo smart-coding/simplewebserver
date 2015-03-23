@@ -1,14 +1,14 @@
 package com.fzb.http.server.cookie;
 
-import java.util.Date;
 
 public class Cookie {
 	
+	public static final String JSESSIONID="JSESSIONID";
 	private String name;
 	private String value;
 	private String domain;
-	private String path;
-	private Date outDate;
+	private String path="/";
+	private Integer maxAge;
 	private boolean create;
 	
 	public Cookie(boolean create){
@@ -54,17 +54,6 @@ public class Cookie {
 		this.path = path;
 	}
 
-
-	public Date getOutDate() {
-		return outDate;
-	}
-
-
-	public void setOutDate(Date outDate) {
-		this.outDate = outDate;
-	}
-
-
 	public Cookie(){
 		//
 	}
@@ -73,19 +62,37 @@ public class Cookie {
 	
 	@Override
 	public String toString() {
-		return name+"=" + value + ";"+"Path="+path+";HttpOnly";
+		if(maxAge==null){
+			return name+"=" + value + ";"+"Path="+path+";HttpOnly";
+		}
+		else{
+			return name+"=" + value + ";"+"Path="+path+";max-age="+maxAge+";HttpOnly";
+		}
 	}
 
 
 	public static Cookie[] saxToCookie(String cookieStr){
-		String[] kv=cookieStr.split(";");
-		Cookie[] cookies=new Cookie[1];
-		
-		Cookie cookie=new Cookie();
-		cookie.setName(kv[0].split("=")[0]);
-		cookie.setValue(kv[0].split("=")[1]);
-		cookies[0]=cookie;
+		String[] kvArr=cookieStr.split(";");
+		Cookie[] cookies=new Cookie[kvArr.length];
+		for (int i=0;i<kvArr.length;i++) {
+			String[] kv=kvArr[i].trim().split("=");
+			Cookie cookie=new Cookie();
+			cookie.setName(kv[0]);
+			cookie.setValue(kv[1]);
+			cookies[i]=cookie;
+		}
 		return cookies;
+	}
+	
+	public static String getJSessionId(String cookieStr){
+		String[] kvArr=cookieStr.split(";");
+		for (int i=0;i<kvArr.length;i++) {
+			String[] kv=kvArr[i].trim().split("=");
+			if(JSESSIONID.equals(kv[0])){
+				return (kv[1]);
+			}
+		}
+		return null;
 	}
 
 	public boolean isCreate() {
@@ -94,5 +101,13 @@ public class Cookie {
 
 	public void setCreate(boolean create) {
 		this.create = create;
+	}
+ 
+	public Integer getMaxAge() {
+		return maxAge;
+	}
+
+	public void setMaxAge(Integer maxAge) {
+		this.maxAge = maxAge;
 	}
 }

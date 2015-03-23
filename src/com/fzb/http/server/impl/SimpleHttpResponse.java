@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -17,6 +19,7 @@ import com.fzb.http.kit.PathKit;
 import com.fzb.http.mimetype.MimeTypeUtil;
 import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpResponse;
+import com.fzb.http.server.cookie.Cookie;
 
 import flexjson.JSONSerializer;
 
@@ -27,12 +30,16 @@ public class SimpleHttpResponse implements HttpResponse{
 	private SocketChannel channel;
 	private Map<String,String> header=new HashMap<String,String>();
 	private HttpRequest request;
+	private List<Cookie> cookieList=new ArrayList<Cookie>();
 	public SimpleHttpResponse(SocketChannel channel,HttpRequest request) throws IOException{
 		this.channel=channel;
-		if(request.getCookies()[0].isCreate()){
-			header.put("Set-Cookie",request.getCookies()[0].toString());
-		}
 		this.request=request;
+		Cookie[] cookies=request.getCookies();
+		for (Cookie cookie : cookies) {
+			if(cookie.isCreate()){
+				cookieList.add(cookie);
+			}
+		}
 	}
 
 	@Override
@@ -111,6 +118,10 @@ public class SimpleHttpResponse implements HttpResponse{
 		for (Entry<String, String> he : header.entrySet()) {
 			bout.write(new String(he.getKey()+": "+he.getValue()+"\r\n").getBytes());
 		}
+		//deal cookie
+		for (Cookie cookie : cookieList) {
+			bout.write(new String("Set-Cookie: "+cookie+"\r\n").getBytes());
+		}
 		bout.write("\r\n".getBytes());
 		return bout.toByteArray();
 	}
@@ -149,6 +160,11 @@ public class SimpleHttpResponse implements HttpResponse{
 	@Override
 	public void renderHtml(String urlPath) {
 		wirteFile(new File(PathKit.getStaticPath()+urlPath));
+	}
+
+	@Override
+	public void addCookie(Cookie cookie) {
+		cookieList.add(cookie);
 	}
 	
 }
