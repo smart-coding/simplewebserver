@@ -1,8 +1,10 @@
 package com.fzb.http.server.impl;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -72,7 +74,11 @@ public class SimpleHttpRequest implements HttpRequest{
 	@Override
 	public String getParaToStr(String key) {
 		if(paramMap.get(key)!=null){
-			return paramMap.get(key)[0];
+			try {
+				return URLDecoder.decode(paramMap.get(key)[0],"UTF-8");
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
 		}
 		return null;
 	}
