@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import com.fzb.common.util.HexaConversionUtil;
 import com.fzb.common.util.IOUtil;
+import com.fzb.http.kit.ConfigKit;
 import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
@@ -72,7 +73,9 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				else if(method==HttpMethod.POST){
 					url=pHeader.split(" ")[1];
 					Integer dateLength=Integer.parseInt(header.get("Content-Length"));
-					//FIXME 无法分配过大的Buffer
+					if(dateLength>ConfigKit.getMaxUploadSize()){
+						return true;
+					}
 					dataBuffer=ByteBuffer.allocate(dateLength);
 					Integer remainLen=fullStr.indexOf(split)+split.getBytes().length;
 					byte[] remain=HexaConversionUtil.subByts(date, remainLen, date.length-remainLen);
@@ -138,8 +141,13 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					paramMap.get(kv[0])[paramMap.get(kv[0]).length]=kv[1];
 				}
 				else{
-					String vs[]=new String[]{kv[1]};
-					paramMap.put(kv[0], vs);
+					if(kv.length==2){
+						String vs[]=new String[]{kv[1]};
+						paramMap.put(kv[0], vs);
+					}
+					else{
+						paramMap.put(kv[0], null);
+					}
 				}
 			}
 		}

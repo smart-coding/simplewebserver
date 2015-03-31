@@ -14,7 +14,16 @@ public class PathKit {
 	}
 	
 	public static String getRootPath(){
-		return new File(PathKit.class.getClass().getResource("/").getPath()).getParentFile().toString();
+		String path="";
+		if(PathKit.class.getResource("/")!=null){
+			path=new File(PathKit.class.getClass().getResource("/").getPath()).getParentFile().toString();
+			
+		}
+		else{
+			String thisPath=PathKit.class.getProtectionDomain().getCodeSource().getLocation().getPath().substring(1).replace("/", "\\");
+			path=thisPath.substring(0,thisPath.lastIndexOf('\\')+1);
+		}
+		return path;
 	}
 	
 	public static String getConfFile(String file){

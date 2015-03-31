@@ -87,5 +87,21 @@ public class SimpleHttpRequest implements HttpRequest{
 	public File getFile(String key) {
 		return files.get(key);
 	}
+
+	@Override
+	public int getParaToInt(String key) {
+		if(paramMap.get(key)!=null){
+			return Integer.parseInt(paramMap.get(key)[0]);
+		}
+		return 0;
+	}
+
+	@Override
+	public boolean getParaToBool(String key) {
+		if(paramMap.get(key)!=null){
+			return paramMap.get(key)[0]=="on";
+		}
+		return false;
+	}
 	
 }

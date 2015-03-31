@@ -54,6 +54,10 @@ public class SimpleHttpResponse implements HttpResponse{
 
 	@Override
 	public void wirteFile(File file) {
+		String chatset="";
+		if(file.toString().endsWith(".html")){
+			chatset=";charset=UTF-8";
+		}
 		if(file.exists()){
 			try {
 				// getMimeType
@@ -65,8 +69,8 @@ public class SimpleHttpResponse implements HttpResponse{
 				}
 				fout.write("HTTP/1.1 200 OK\r\n".getBytes());
 				String ext=file.getName().substring(file.getName().lastIndexOf(".")+1);
-				header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext)+";charset=UTF-8");
-				fout.write(headerMapToStr());
+				header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext)+chatset);
+				fout.write(headerMapToStr(IOUtil.getByteByInputStream(new FileInputStream(file))));
 				fout.write(IOUtil.getByteByInputStream(new FileInputStream(file)));
 				//out.write(fout.toByteArray());
 				//out.close();
@@ -98,8 +102,8 @@ public class SimpleHttpResponse implements HttpResponse{
 			ByteArrayOutputStream fout=new ByteArrayOutputStream();
 			fout.write("HTTP/1.1 200 OK\r\n".getBytes());
 			header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("json")+";charset=UTF-8");
-			fout.write(headerMapToStr());
-			fout.write(body.getBytes());
+			fout.write(headerMapToStr(body.getBytes("UTF-8")));
+			fout.write(body.getBytes("UTF-8"));
 			send(fout);
 		} catch (FileNotFoundException e) {
 			renderByErrorStatusCode(404);
@@ -112,8 +116,11 @@ public class SimpleHttpResponse implements HttpResponse{
 	 * @return
 	 * @throws IOException
 	 */
-	private byte[] headerMapToStr() throws IOException{
+	private byte[] headerMapToStr(byte[] data) throws IOException{
 		header.put("server", serverName);
+		/*if(data.length>0){
+			header.put("Content-Length", data.length+"");
+		}*/
 		ByteArrayOutputStream bout=new ByteArrayOutputStream();
 		for (Entry<String, String> he : header.entrySet()) {
 			bout.write(new String(he.getKey()+": "+he.getValue()+"\r\n").getBytes());
@@ -132,7 +139,7 @@ public class SimpleHttpResponse implements HttpResponse{
 			try {
 				fout.write("HTTP/1.1 404 Not Found\r\n".getBytes());
 				header.put("Content-Type", "text/html;charset=UTF-8");
-				fout.write(headerMapToStr());
+				fout.write(headerMapToStr("<html><body>404 file not found</body></html>".getBytes()));
 				fout.write("<html><body>404 file not found</body></html>".getBytes());
 				send(fout);
 			} catch (IOException e1) {
@@ -144,7 +151,7 @@ public class SimpleHttpResponse implements HttpResponse{
 			try {
 				fout.write("HTTP/1.1 302 Moved  Permanently\r\n".getBytes());
 				header.put("Location", "http://"+request.getHeader("HOST")+"/"+request.getUrl()+"index.html");
-				fout.write(headerMapToStr());
+				fout.write(headerMapToStr(new String().getBytes()));
 				send(fout);
 			} catch (IOException e1) {
 				e1.printStackTrace();

@@ -26,9 +26,9 @@ public class SimpleServer implements ISocketServer{
 	private Selector selector;
 	@Override
 	public void listener() {
-		//config router
-		Router.getInstance().addMapper("/user", MySimpleController.class);
-		
+		if(selector==null){
+			return;
+		}
 		HttpDecoder request=new HttpDecoder();
 		while (true) {
 			try {
@@ -50,15 +50,17 @@ public class SimpleServer implements ISocketServer{
 					} 
 					else if (key.isReadable()) {
 						channel=(SocketChannel) key.channel();
-						if(request.doDecode(channel)){
-							HttpResponse response = new SimpleHttpResponse(channel, request);
-							HttpRequestMethod sim = new Controller();
-							sim.doGet(request, response);
-							// 渲染错误页面
-							if(!channel.socket().isClosed()){
-								response.renderError(404);
+						if(channel!=null){
+							if(request.doDecode(channel)){
+								HttpResponse response = new SimpleHttpResponse(channel, request);
+								HttpRequestMethod sim = new Controller();
+								sim.doGet(request, response);
+								// 渲染错误页面
+								if(!channel.socket().isClosed()){
+									response.renderError(404);
+								}
+								request=new HttpDecoder();
 							}
-							request=new HttpDecoder();
 						}
 					}
 				}
@@ -89,7 +91,7 @@ public class SimpleServer implements ISocketServer{
 			selector = Selector.open(); // 静态方法 实例化selector
 			serverChannel.register(selector, SelectionKey.OP_ACCEPT); // 注册
 																	// OP_ACCEPT事件
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
@@ -112,13 +114,4 @@ public class SimpleServer implements ISocketServer{
 		}*/
 
 	}
-
-	public static void main(String[] args) {
-		//run server
-		SimpleServer server = new SimpleServer();
-		server.create();
-
-		server.listener();
-	}
-
 }

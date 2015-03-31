@@ -16,6 +16,8 @@ public interface HttpRequest {
 	HttpMethod getMethod();
 	Cookie[] getCookies();
 	HttpSession getSession();
+	boolean getParaToBool(String key);
 	String getParaToStr(String key);
+	int getParaToInt(String key);
 	File getFile(String key);
 }
