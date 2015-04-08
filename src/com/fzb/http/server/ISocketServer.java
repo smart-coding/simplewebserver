@@ -1,13 +1,13 @@
 package com.fzb.http.server;
 
-import java.net.Socket;
-import java.nio.channels.Selector;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.Iterator;
 
 public interface ISocketServer {
 
 	void listener();
 	void distory();
 	void create();
-	void dispose(SocketChannel socket, Selector selector);
+	void dispose(SocketChannel socket, HttpRequest request,Iterator<SelectionKey> iter);
 }

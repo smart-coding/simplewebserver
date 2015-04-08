@@ -1,9 +1,9 @@
-package com.fzb.http.server.impl;
+package com.fzb.test;
 
 import com.fzb.http.server.Router;
-import com.fzb.test.MySimpleController;
+import com.fzb.http.server.impl.RouterServer;
 
-public class SimpleRouterServer extends RouterServer{
+public class ServerRun extends RouterServer{
 
 	@Override
 	public void configRouter() {
@@ -13,6 +13,6 @@ public class SimpleRouterServer extends RouterServer{
 	
 	public static void main(String[] args) {
 		// 启动 server
-		new Thread(new SimpleRouterServer()).start();
+		new Thread(new ServerRun()).start();
 	}
 }

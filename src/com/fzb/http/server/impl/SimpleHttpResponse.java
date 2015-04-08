@@ -1,6 +1,7 @@
 package com.fzb.http.server.impl;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -8,15 +9,20 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.fzb.common.util.HexaConversionUtil;
 import com.fzb.common.util.IOUtil;
 import com.fzb.http.kit.PathKit;
+import com.fzb.http.kit.StatusCodeKit;
+import com.fzb.http.kit.StringsUtil;
 import com.fzb.http.mimetype.MimeTypeUtil;
+import com.fzb.http.server.ChunkedOutputStream;
 import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.cookie.Cookie;
@@ -35,9 +41,11 @@ public class SimpleHttpResponse implements HttpResponse{
 		this.channel=channel;
 		this.request=request;
 		Cookie[] cookies=request.getCookies();
-		for (Cookie cookie : cookies) {
-			if(cookie.isCreate()){
-				cookieList.add(cookie);
+		if(cookies!=null){
+			for (Cookie cookie : cookies) {
+				if(cookie.isCreate()){
+					cookieList.add(cookie);
+				}
 			}
 		}
 	}
@@ -55,25 +63,22 @@ public class SimpleHttpResponse implements HttpResponse{
 	@Override
 	public void wirteFile(File file) {
 		String chatset="";
-		if(file.toString().endsWith(".html")){
+		/*if(file.toString().endsWith(".html")){
 			chatset=";charset=UTF-8";
-		}
+		}*/
 		if(file.exists()){
 			try {
 				// getMimeType
 				ByteArrayOutputStream fout=new ByteArrayOutputStream();
-				
 				if(file.isDirectory()){
 					renderByErrorStatusCode(302);
 					return;
 				}
-				fout.write("HTTP/1.1 200 OK\r\n".getBytes());
 				String ext=file.getName().substring(file.getName().lastIndexOf(".")+1);
-				header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext)+chatset);
-				fout.write(headerMapToStr(IOUtil.getByteByInputStream(new FileInputStream(file))));
-				fout.write(IOUtil.getByteByInputStream(new FileInputStream(file)));
-				//out.write(fout.toByteArray());
-				//out.close();
+				if(header.get("Content-Type")==null){
+					header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext)+chatset);
+				}
+				fout.write(warpperData(200,IOUtil.getByteByInputStream(new FileInputStream(file))));
 				send(fout);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -85,10 +90,16 @@ public class SimpleHttpResponse implements HttpResponse{
 	}
 	private void send(ByteArrayOutputStream fout){
 		ByteBuffer buffer=ByteBuffer.allocate(fout.toByteArray().length);
-		buffer.put(fout.toByteArray());
 		try {
+			buffer.put(fout.toByteArray());
 			buffer.flip();
-			channel.write(buffer);
+			
+			while (buffer.hasRemaining()) {
+			    int len = channel.write(buffer);
+			    if (len < 0) {
+			        throw new EOFException();
+			    }
+			}
 			channel.close();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -100,10 +111,8 @@ public class SimpleHttpResponse implements HttpResponse{
 		try {
 			String body=new JSONSerializer().deepSerialize(json);
 			ByteArrayOutputStream fout=new ByteArrayOutputStream();
-			fout.write("HTTP/1.1 200 OK\r\n".getBytes());
 			header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("json")+";charset=UTF-8");
-			fout.write(headerMapToStr(body.getBytes("UTF-8")));
-			fout.write(body.getBytes("UTF-8"));
+			fout.write(warpperData(200,body.getBytes("UTF-8")));
 			send(fout);
 		} catch (FileNotFoundException e) {
 			renderByErrorStatusCode(404);
@@ -116,12 +125,14 @@ public class SimpleHttpResponse implements HttpResponse{
 	 * @return
 	 * @throws IOException
 	 */
-	private byte[] headerMapToStr(byte[] data) throws IOException{
+	private byte[] warpperData(Integer statusCode,byte[] data) throws IOException{
 		header.put("server", serverName);
-		/*if(data.length>0){
+		if(data.length>0){
+			//header.put("Transfer-Encoding", "chunked");
 			header.put("Content-Length", data.length+"");
-		}*/
+		}
 		ByteArrayOutputStream bout=new ByteArrayOutputStream();
+		bout.write(("HTTP/1.1 "+statusCode+" "+StatusCodeKit.getStatusCode(statusCode)+"\r\n").getBytes());
 		for (Entry<String, String> he : header.entrySet()) {
 			bout.write(new String(he.getKey()+": "+he.getValue()+"\r\n").getBytes());
 		}
@@ -130,6 +141,10 @@ public class SimpleHttpResponse implements HttpResponse{
 			bout.write(new String("Set-Cookie: "+cookie+"\r\n").getBytes());
 		}
 		bout.write("\r\n".getBytes());
+		if(data.length>0){
+			//bout.write(warpperToChunkedByte(data));
+			bout.write(data);
+		}
 		return bout.toByteArray();
 	}
 	
@@ -137,10 +152,8 @@ public class SimpleHttpResponse implements HttpResponse{
 		if(errorCode==404){
 			ByteArrayOutputStream fout=new ByteArrayOutputStream();
 			try {
-				fout.write("HTTP/1.1 404 Not Found\r\n".getBytes());
 				header.put("Content-Type", "text/html;charset=UTF-8");
-				fout.write(headerMapToStr("<html><body>404 file not found</body></html>".getBytes()));
-				fout.write("<html><body>404 file not found</body></html>".getBytes());
+				fout.write(warpperData(404,StringsUtil.getNouFoundStr().getBytes()));
 				send(fout);
 			} catch (IOException e1) {
 				e1.printStackTrace();
@@ -149,9 +162,8 @@ public class SimpleHttpResponse implements HttpResponse{
 		else if(errorCode==302){
 			ByteArrayOutputStream fout=new ByteArrayOutputStream();
 			try {
-				fout.write("HTTP/1.1 302 Moved  Permanently\r\n".getBytes());
-				header.put("Location", "http://"+request.getHeader("HOST")+"/"+request.getUrl()+"index.html");
-				fout.write(headerMapToStr(new String().getBytes()));
+				header.put("Location", "http://"+request.getHeader("Host")+"/"+request.getUrl()+"index.html");
+				fout.write(warpperData(302,new String().getBytes()));
 				send(fout);
 			} catch (IOException e1) {
 				e1.printStackTrace();
@@ -173,5 +185,47 @@ public class SimpleHttpResponse implements HttpResponse{
 	public void addCookie(Cookie cookie) {
 		cookieList.add(cookie);
 	}
+
+	@Override
+	public void renderHtmlStr(String htmlContent) {
+		try {
+			ByteArrayOutputStream fout=new ByteArrayOutputStream();
+			header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("html")+";charset=UTF-8");
+			fout.write(warpperData(200,htmlContent.getBytes("UTF-8")));
+			send(fout);
+		} catch (FileNotFoundException e) {
+			renderByErrorStatusCode(404);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
 	
+	private byte[] warpperToChunkedByte(byte[] data){
+		ByteArrayOutputStream bout=new ByteArrayOutputStream();
+		System.out.println("before size "+data.length);
+		ChunkedOutputStream out=new ChunkedOutputStream(bout);
+		try {
+			int block=128;
+			int blockCount=data.length/block;
+			for (int i=0;i<blockCount;i++) {
+				out.write(HexaConversionUtil.subByts(data, i*block,block));
+			}
+			int last=data.length%block;
+			if(last!=0){
+				out.write(HexaConversionUtil.subByts(data, blockCount*block,last));
+			}
+			System.out.println("now size "+bout.toByteArray().length);
+			out.close();
+			return bout.toByteArray();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return new byte[0];
+	}
+
+	@Override
+	public void addHeader(String name, String value) {
+		header.put(name, value);
+	}
 }

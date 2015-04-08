@@ -1,11 +1,18 @@
-package com.fzb.http.server.impl;
+package com.fzb.test;
 
+import com.fzb.http.server.BaseController;
 import com.fzb.http.server.Controller;
 import com.fzb.http.server.cookie.Cookie;
 
 
-public class MySimpleController extends Controller {
+public class MySimpleController extends BaseController {
 
+	@Override
+	public boolean before() {
+		System.out.println("GGGGGGGGGG");
+		return true;
+	}
+	
 	public void login(){
 		Cookie cookie=new Cookie();
 		cookie.setMaxAge(11111111);

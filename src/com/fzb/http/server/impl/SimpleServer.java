@@ -2,7 +2,6 @@ package com.fzb.http.server.impl;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -11,19 +10,22 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.fzb.http.kit.PathKit;
-import com.fzb.http.server.Controller;
+import com.fzb.http.server.BaseController;
+import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpRequestMethod;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
-import com.fzb.http.server.Router;
 import com.fzb.http.server.codec.impl.HttpDecoder;
 
 public class SimpleServer implements ISocketServer{
 
 	private ServerSocketChannel serverChannel;
 	private Selector selector;
+	private ExecutorService service=Executors.newFixedThreadPool(100);
 	@Override
 	public void listener() {
 		if(selector==null){
@@ -40,11 +42,9 @@ public class SimpleServer implements ISocketServer{
 					SocketChannel channel = null;
 					if (key.isAcceptable()){
 						ServerSocketChannel server = (ServerSocketChannel)key.channel();
-		                //获得客户端连接通道
 	                    channel = server.accept();
 	                    if(channel!=null){
 	                    	channel.configureBlocking(false);
-	                    	//在与客户端连接成功后，为客户端通道注册SelectionKey.OP_READ事件。
 	                    	channel.register(selector, SelectionKey.OP_READ);
 	                    }
 					} 
@@ -52,21 +52,14 @@ public class SimpleServer implements ISocketServer{
 						channel=(SocketChannel) key.channel();
 						if(channel!=null){
 							if(request.doDecode(channel)){
-								HttpResponse response = new SimpleHttpResponse(channel, request);
-								HttpRequestMethod sim = new Controller();
-								sim.doGet(request, response);
-								// 渲染错误页面
-								if(!channel.socket().isClosed()){
-									response.renderError(404);
-								}
-								request=new HttpDecoder();
+								dispose(channel, request,iter);
 							}
 						}
 					}
 				}
-				iter.remove(); // 处理完事件的要从keys中删去
 			} catch (Exception e) {
-				e.printStackTrace();
+				System.out.println(e.getLocalizedMessage());
+				//e.printStackTrace();
 			}
 		}
 	}
@@ -97,21 +90,36 @@ public class SimpleServer implements ISocketServer{
 	}
 
 	@Override
-	public void dispose(SocketChannel socket, Selector selector) {
-		/*HttpRequest request;
-		try {
-			request = new SimpleHttpRequest();
-			socket.register(selector, SelectionKey.OP_WRITE);
-			HttpResponse response = new SimpleHttpResponse(socket, request);
-
-			HttpRequestMethod sim = new UserServlet();
-			sim.doGet(request, response);
-			
-			if(!socket.isClosed()){ response.renderError(404); }
-			 
-		} catch (Exception e) {
-			e.printStackTrace();
-		}*/
-
+	public void dispose(SocketChannel channel, HttpRequest request, Iterator<SelectionKey> iter) {
+		final SocketChannel tc=channel;
+		final HttpRequest request2=request;
+		final Iterator<SelectionKey> iterator=iter;
+		Thread thread=new Thread(){
+			@Override
+			public void run() {
+				HttpResponse response=null;
+				try {
+					if(!tc.socket().isClosed()){
+						response = new SimpleHttpResponse(tc, request2);
+						HttpRequestMethod sim = new BaseController();
+						sim.doGet(request2, response);
+					}
+					
+				} catch (Exception e) {
+					System.out.println(e.getLocalizedMessage());
+					//e.printStackTrace();
+				} finally{
+					if(response!=null){
+						// 渲染错误页面
+						if(!tc.socket().isClosed()){
+							response.renderError(404);
+						}
+					}
+					//FIXME java.util.ConcurrentModificationException
+					iterator.remove();
+				}
+			}
+		};
+		service.execute(thread);
 	}
 }

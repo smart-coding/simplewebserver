@@ -12,7 +12,6 @@ import java.util.UUID;
 
 import com.fzb.common.util.HexaConversionUtil;
 import com.fzb.common.util.IOUtil;
-import com.fzb.http.kit.ConfigKit;
 import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
@@ -30,6 +29,9 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 	}
 	@Override
 	public boolean doDecode(SocketChannel channel) throws Exception{
+		if(channel.socket().isClosed()){
+			return false;
+		}
 		this.ipAddr=channel.socket().getRemoteSocketAddress();
 		// parse HttpHeader
 		ByteBuffer buffer1=ByteBuffer.allocate(1024*16);
@@ -73,9 +75,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				else if(method==HttpMethod.POST){
 					url=pHeader.split(" ")[1];
 					Integer dateLength=Integer.parseInt(header.get("Content-Length"));
-					if(dateLength>ConfigKit.getMaxUploadSize()){
-						return true;
-					}
+					//FIXME 无法分配过大的Buffer
 					dataBuffer=ByteBuffer.allocate(dateLength);
 					Integer remainLen=fullStr.indexOf(split)+split.getBytes().length;
 					byte[] remain=HexaConversionUtil.subByts(date, remainLen, date.length-remainLen);
@@ -86,46 +86,48 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					}
 				}
 				// deal with cookie
+				boolean createCookie=true;
 				if(header.get("Cookie")!=null){
 					cookies=Cookie.saxToCookie(header.get("Cookie").toString());
-					if(Cookie.getJSessionId(header.get("Cookie").toString())==null){
+					String jsessionid=Cookie.getJSessionId(header.get("Cookie").toString());
+					if(jsessionid==null){
 						Cookie[] tcookies=new Cookie[cookies.length+1];
+						// copy cookie
 						for(int i=0;i<cookies.length;i++){
 							tcookies[i]=cookies[i];
 						}
-						// new cookie
-						String jsessionid=UUID.randomUUID().toString();
-						Cookie cookie=new Cookie(true);
-						cookie.setName(Cookie.JSESSIONID);
-						cookie.setPath("/");
-						cookie.setValue(jsessionid);
-						tcookies[cookies.length]=cookie;
 						cookies=tcookies;
-						session=new HttpSession(jsessionid);
-						SessionUtil.sessionMap.put(jsessionid, session);
 					}
 					else{
-						session=SessionUtil.getSessionById(cookies[0].getValue());
+						session=SessionUtil.getSessionById(jsessionid);
+						if(session!=null){
+							createCookie=false;
+						}
 					}
 				}
-				else{
-					cookies=new Cookie[1];
+				if(createCookie){
+					if(cookies==null){
+						cookies=new Cookie[1];
+					}
 					Cookie cookie=new Cookie(true);
 					String jsessionid=UUID.randomUUID().toString();
 					cookie.setName(Cookie.JSESSIONID);
 					cookie.setPath("/");
 					cookie.setValue(jsessionid);
-					cookies[0]=cookie;
+					cookies[cookies.length-1]=cookie;
 					session=new HttpSession(jsessionid);
-					SessionUtil.sessionMap.put(cookies[0].getValue(), session);
+					SessionUtil.sessionMap.put(jsessionid, session);
+					System.out.println(" create a Cookie ");
 				}
 	 		}
 		}
 		else {
-			dataBuffer.put(date);
-			flag=!dataBuffer.hasRemaining();
-			if(flag){
-				dealPostDate();
+			if(dataBuffer!=null){
+				dataBuffer.put(date);
+				flag=!dataBuffer.hasRemaining();
+				if(flag){
+					dealPostDate();
+				}
 			}
 		}
 		return flag;

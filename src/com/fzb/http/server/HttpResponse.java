@@ -14,4 +14,6 @@ public interface HttpResponse {
 	void setHeader(String key,String value);
 	void renderError(int errorCode);
 	void addCookie(Cookie cookie);
+	void renderHtmlStr(String htmlContent);
+	void addHeader(String name,String value);
 }
