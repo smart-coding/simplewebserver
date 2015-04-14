@@ -228,4 +228,21 @@ public class SimpleHttpResponse implements HttpResponse{
 	public void addHeader(String name, String value) {
 		header.put(name, value);
 	}
+	
+	@Override
+	public void redirect(String url) {
+		ByteArrayOutputStream fout=new ByteArrayOutputStream();
+		header.put("Location", url);
+		try {
+			fout.write(warpperData(302,new byte[0]));
+			send(fout);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public void forword(String url) {
+		redirect("http://"+request.getHeader("Host")+"/"+url);
+	}
 }

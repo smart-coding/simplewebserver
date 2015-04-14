@@ -28,4 +28,8 @@ public class HttpSession{
 	public Object getAttr(String name) {
 		return attrMap.get(name);
 	}
+	
+	public void removeAttr(String name){
+		attrMap.remove(name);
+	}
 }

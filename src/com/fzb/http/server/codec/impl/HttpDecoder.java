@@ -29,15 +29,13 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 	}
 	@Override
 	public boolean doDecode(SocketChannel channel) throws Exception{
-		if(channel.socket().isClosed()){
-			return false;
-		}
 		this.ipAddr=channel.socket().getRemoteSocketAddress();
 		// parse HttpHeader
 		ByteBuffer buffer1=ByteBuffer.allocate(1024*16);
 		int length=channel.read(buffer1);
-		if(length<0){
-			return false;
+		if(length<=0){
+			channel.socket().close();
+			return true;
 		}
 		byte[] date=HexaConversionUtil.subByts(buffer1.array(), 0, length);
 		//InputStream in=channel.socket().getInputStream();

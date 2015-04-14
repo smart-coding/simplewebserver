@@ -8,7 +8,7 @@ public class ServerRun extends RouterServer{
 	@Override
 	public void configRouter() {
 		//config router
-		Router.getInstance().addMapper("/user", MySimpleController.class);
+		Router.getInstance().addMapper("/_file", MySimpleController.class);
 	}
 	
 	public static void main(String[] args) {

@@ -16,4 +16,6 @@ public interface HttpResponse {
 	void addCookie(Cookie cookie);
 	void renderHtmlStr(String htmlContent);
 	void addHeader(String name,String value);
+	void redirect(String url);
+	void forword(String url);
 }
