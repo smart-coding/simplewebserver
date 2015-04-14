@@ -25,7 +25,12 @@ public abstract class Controller extends HttpServer{
 			}
 			Method method=Router.getInstance().getMethod(request.getUrl());
 			if(method==null){
-				response.renderError(404);
+				if(request.getUrl().endsWith("/")){
+					response.renderHtml(request.getUrl()+"index.html");
+				}
+				else{
+					response.renderError(404);
+				}
 				return;
 			}
 			//

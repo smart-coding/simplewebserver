@@ -3,19 +3,21 @@ package com.fzb.http.server.impl;
 import java.io.File;
 import java.io.FileInputStream;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.BaseController;
-import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpRequestMethod;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
@@ -25,20 +27,20 @@ public class SimpleServer implements ISocketServer{
 
 	private ServerSocketChannel serverChannel;
 	private Selector selector;
-	private ExecutorService service=Executors.newFixedThreadPool(100);
+	private ExecutorService service=Executors.newFixedThreadPool(10);
+	private Map<Socket,HttpDecoder> decoderMap=new ConcurrentHashMap<Socket,HttpDecoder>();
 	@Override
 	public void listener() {
 		if(selector==null){
 			return;
 		}
-		HttpDecoder request=new HttpDecoder();
 		while (true) {
 			try {
 				selector.select();
 				Set<SelectionKey> keys = selector.selectedKeys();
 				Iterator<SelectionKey> iter = keys.iterator();
 				while (iter.hasNext()) {
-					SelectionKey key = iter.next();
+					SelectionKey key= iter.next();
 					SocketChannel channel = null;
 					if (key.isAcceptable()){
 						ServerSocketChannel server = (ServerSocketChannel)key.channel();
@@ -51,15 +53,19 @@ public class SimpleServer implements ISocketServer{
 					else if (key.isReadable()) {
 						channel=(SocketChannel) key.channel();
 						if(channel!=null){
-							if(request.doDecode(channel)){
-								dispose(channel, request,iter);
+							HttpDecoder request=decoderMap.get(channel.socket());
+							if(request==null){
+								request=new HttpDecoder();
+								decoderMap.put(channel.socket(), request);
 							}
+							dispose(channel, request);
 						}
+						key.cancel();
 					}
+					iter.remove();
 				}
 			} catch (Exception e) {
-				System.out.println(e.getLocalizedMessage());
-				//e.printStackTrace();
+				e.printStackTrace();
 			}
 		}
 	}
@@ -90,36 +96,41 @@ public class SimpleServer implements ISocketServer{
 	}
 
 	@Override
-	public void dispose(SocketChannel channel, HttpRequest request, Iterator<SelectionKey> iter) {
-		final SocketChannel tc=channel;
-		final HttpRequest request2=request;
-		final Iterator<SelectionKey> iterator=iter;
+	public void dispose(final SocketChannel channel, final HttpDecoder request) {
+		final long beginTime=System.currentTimeMillis();
+		try {
+			if(!request.doDecode(channel) || channel.socket().isClosed()){
+				System.out.println(decoderMap.size());
+				return;
+			}
+		} catch (Exception e1) {
+			e1.printStackTrace();
+		}
 		Thread thread=new Thread(){
 			@Override
 			public void run() {
 				HttpResponse response=null;
-				try {
-					if(!tc.socket().isClosed()){
-						response = new SimpleHttpResponse(tc, request2);
-						HttpRequestMethod sim = new BaseController();
-						sim.doGet(request2, response);
-					}
-					
+				try { 
+					response = new SimpleHttpResponse(channel, request);
+					HttpRequestMethod sim = new BaseController();
+					sim.doGet(request, response);
 				} catch (Exception e) {
 					System.out.println(e.getLocalizedMessage());
-					//e.printStackTrace();
+					e.printStackTrace();
 				} finally{
+					decoderMap.remove(channel.socket());
 					if(response!=null){
 						// 渲染错误页面
-						if(!tc.socket().isClosed()){
+						if(!channel.socket().isClosed()){
 							response.renderError(404);
 						}
 					}
-					//FIXME java.util.ConcurrentModificationException
-					iterator.remove();
+					System.out.println(request.getUrl()+ " "+(System.currentTimeMillis()-beginTime) + " ms");
 				}
 			}
 		};
+		//thread.start();
 		service.execute(thread);
+		
 	}
 }

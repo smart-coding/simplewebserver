@@ -28,7 +28,7 @@ public class Router implements IRouter {
 		}
 		System.out.println(routerMap);
 	}
-
+	
 	public static Router getInstance() {
 		return instance;
 	}
