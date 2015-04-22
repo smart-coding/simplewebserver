@@ -71,7 +71,12 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				// 1,POST 提交的数据一次性读取完成。
 				// 2,POST 提交的数据一次性读取不完。
 				else if(method==HttpMethod.POST){
-					url=pHeader.split(" ")[1];
+					String turl=url=pHeader.split(" ")[1];
+					if(turl.indexOf("?")!=-1){
+						url=turl.substring(0,turl.indexOf("?"));
+						paramStr=turl.substring(turl.indexOf("?")+1);
+					}
+					paramStrwapperToMap(paramStr);
 					Integer dateLength=Integer.parseInt(header.get("Content-Length"));
 					//FIXME 无法分配过大的Buffer
 					dataBuffer=ByteBuffer.allocate(dateLength);
@@ -158,6 +163,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 		if(header.get("Content-Type")!=null && header.get("Content-Type").toString().split(";")[0]!=null){
 			if("multipart/form-data".equals(header.get("Content-Type").toString().split(";")[0])){
 				//TODO 使用合理算法提高对网卡的利用率
+				//FIXME 不支持多文件上传，不支持这里有其他属性字段
 				if(!dataBuffer.hasRemaining()){
 					BufferedReader bin=new BufferedReader(new InputStreamReader(new ByteArrayInputStream(dataBuffer.array())));
 					//ByteArrayOutputStream bout=new ByteArrayOutputStream(d);

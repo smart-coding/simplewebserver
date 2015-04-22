@@ -40,6 +40,7 @@ public class SimpleServer implements ISocketServer{
 				Set<SelectionKey> keys = selector.selectedKeys();
 				Iterator<SelectionKey> iter = keys.iterator();
 				while (iter.hasNext()) {
+					System.out.println("GGGGGGGG");
 					SelectionKey key= iter.next();
 					SocketChannel channel = null;
 					if (key.isAcceptable()){
@@ -60,7 +61,7 @@ public class SimpleServer implements ISocketServer{
 							}
 							dispose(channel, request);
 						}
-						key.cancel();
+						//key.cancel();
 					}
 					iter.remove();
 				}
@@ -100,7 +101,7 @@ public class SimpleServer implements ISocketServer{
 		final long beginTime=System.currentTimeMillis();
 		try {
 			if(!request.doDecode(channel) || channel.socket().isClosed()){
-				System.out.println(decoderMap.size());
+				System.out.println("多次 decode " +decoderMap.size());
 				return;
 			}
 		} catch (Exception e1) {
