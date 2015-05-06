@@ -10,6 +10,8 @@ import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.UUID;
 
+import org.apache.log4j.Logger;
+
 import com.fzb.common.util.HexaConversionUtil;
 import com.fzb.common.util.IOUtil;
 import com.fzb.http.kit.PathKit;
@@ -22,6 +24,9 @@ import com.fzb.http.server.session.SessionUtil;
 
 public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
+	private static final Logger log=Logger.getLogger(HttpDecoder.class);
+	
+	
 	private static String split="\r\n\r\n";
 	
 	public HttpDecoder(){
@@ -85,7 +90,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					dataBuffer.put(remain);
 					flag=!dataBuffer.hasRemaining();
 					if(flag){
-						dealPostDate();
+						dealPostData();
 					}
 				}
 				// deal with cookie
@@ -120,7 +125,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					cookies[cookies.length-1]=cookie;
 					session=new HttpSession(jsessionid);
 					SessionUtil.sessionMap.put(jsessionid, session);
-					System.out.println(" create a Cookie ");
+					log.info("create a Cookie "+cookie.toString());
 				}
 	 		}
 		}
@@ -129,7 +134,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				dataBuffer.put(date);
 				flag=!dataBuffer.hasRemaining();
 				if(flag){
-					dealPostDate();
+					dealPostData();
 				}
 			}
 		}
@@ -158,7 +163,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 		}
 	}
 	
-	private void dealPostDate(){
+	private void dealPostData(){
 		String paramStr=null;
 		if(header.get("Content-Type")!=null && header.get("Content-Type").toString().split(";")[0]!=null){
 			if("multipart/form-data".equals(header.get("Content-Type").toString().split(";")[0])){

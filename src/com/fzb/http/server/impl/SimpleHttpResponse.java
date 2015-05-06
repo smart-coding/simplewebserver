@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +31,7 @@ import flexjson.JSONSerializer;
 public class SimpleHttpResponse implements HttpResponse{
 
 	
-	private static String serverName="SIMPLEWEBSERVER/1.1";
+	private static String serverName="SIMPLEWEBSERVER/"+StringsUtil.VERSIONSTR;
 	private SocketChannel channel;
 	private Map<String,String> header=new HashMap<String,String>();
 	private HttpRequest request;
@@ -101,8 +100,8 @@ public class SimpleHttpResponse implements HttpResponse{
 			    }
 			}
 			channel.close();
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			//e.printStackTrace();
 		}
 	}
 
@@ -244,5 +243,11 @@ public class SimpleHttpResponse implements HttpResponse{
 	@Override
 	public void forword(String url) {
 		redirect("http://"+request.getHeader("Host")+"/"+url);
+	}
+
+	@Override
+	public void renderFile(File file) {
+		header.put("Content-Disposition", "attachment;filename="+file.getName());
+		wirteFile(file);
 	}
 }

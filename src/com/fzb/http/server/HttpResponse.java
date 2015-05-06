@@ -18,4 +18,5 @@ public interface HttpResponse {
 	void addHeader(String name,String value);
 	void redirect(String url);
 	void forword(String url);
+	void renderFile(File file);
 }

@@ -19,4 +19,17 @@ public class ConfigKit {
 		} 
 		return 20971520;
 	}
+	
+	public static Integer getServerPort(){
+		Properties prop=new Properties();
+		try {
+			prop.load(new FileInputStream(PathKit.getConfFile("/conf.properties")));
+			return Integer.parseInt(prop.get("server.port").toString());
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
+		return 6058;
+	}
 }

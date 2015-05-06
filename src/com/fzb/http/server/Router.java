@@ -6,7 +6,7 @@ import java.util.Map;
 
 public class Router implements IRouter {
 
-	private static Map<String,Method> routerMap=new HashMap<String,Method>();
+	private Map<String,Method> routerMap=new HashMap<String,Method>();
 	private static Router instance=new Router();
 	private Router(){
 		
@@ -15,18 +15,18 @@ public class Router implements IRouter {
 	@Override
 	public void addMapper(String urlPath, Class clazz) {
 		Method[] methods= clazz.getDeclaredMethods();
-		System.out.println(clazz);
 		for (Method method : methods) {
-			routerMap.put(urlPath+"/"+method.getName(), method);
+			if(method.getModifiers()==1){
+				getRouterMap().put(urlPath+"/"+method.getName(), method);
+			}
 		}
 		try {
-			routerMap.put(urlPath, clazz.getClass().getMethod("index"));
+			getRouterMap().put(urlPath, clazz.getClass().getMethod("index"));
 		} catch (NoSuchMethodException e) {
 			//e.printStackTrace();
 		} catch (SecurityException e) {
 			//e.printStackTrace();
 		}
-		System.out.println(routerMap);
 	}
 	
 	public static Router getInstance() {
@@ -34,6 +34,14 @@ public class Router implements IRouter {
 	}
 	
 	public Method getMethod(String url){
-		return routerMap.get(url);
+		return getRouterMap().get(url);
+	}
+
+	public Map<String,Method> getRouterMap() {
+		return routerMap;
+	}
+
+	public void setRouterMap(Map<String,Method> routerMap) {
+		this.routerMap = routerMap;
 	}
 }

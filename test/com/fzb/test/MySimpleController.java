@@ -1,17 +1,10 @@
 package com.fzb.test;
 
-import com.fzb.http.server.BaseController;
 import com.fzb.http.server.Controller;
 import com.fzb.http.server.cookie.Cookie;
 
 
-public class MySimpleController extends BaseController {
-
-	@Override
-	public boolean before() {
-		System.out.println("GGGGGGGGGG");
-		return true;
-	}
+public class MySimpleController extends Controller {
 	
 	public void login(){
 		Cookie cookie=new Cookie();
@@ -22,5 +15,4 @@ public class MySimpleController extends BaseController {
 		System.out.println(getRequest().getHeader("User-Agent"));
 		getResponse().renderHtml("/index.html");
 	}
-	
 }
