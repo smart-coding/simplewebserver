@@ -150,7 +150,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				int idx=string.indexOf("=");
 				if(idx!=-1){
 					String key=string.substring(0,idx);
-					String value=string.substring(idx);
+					String value=string.substring(idx+1);
 					if(tempParam.containsKey(key)){
 						tempParam.get(key).add(value);
 					}
