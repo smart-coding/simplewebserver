@@ -161,7 +161,7 @@ public class SimpleHttpResponse implements HttpResponse{
 		else if(errorCode==302){
 			ByteArrayOutputStream fout=new ByteArrayOutputStream();
 			try {
-				header.put("Location", "http://"+request.getHeader("Host")+"/"+request.getUrl()+"index.html");
+				header.put("Location", "http://"+request.getHeader("Host")+"/"+request.getUri()+"index.html");
 				fout.write(warpperData(302,new String().getBytes()));
 				send(fout);
 			} catch (IOException e1) {

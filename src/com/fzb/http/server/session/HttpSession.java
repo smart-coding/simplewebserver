@@ -1,28 +1,24 @@
 package com.fzb.http.server.session;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HttpSession{
 
-	private String sessionID;
+	private String sessionId;
 	
-	private Map<String,Object> attrMap=new HashMap<String,Object>();
+	private Map<String,Object> attrMap=new ConcurrentHashMap<String,Object>();
 	
 	public HttpSession(String sessionID){
-		this.sessionID=sessionID;
+		this.sessionId=sessionID;
 	}
 	
 	public void setAttr(String name,Object value){
 		attrMap.put(name, value);
 	}
-	
-	public static HttpSession getSessionById(String sessionID){
-		return SessionUtil.sessionMap.get(sessionID);
-	}
 
 	public String getSessionId() {
-		return sessionID;
+		return sessionId;
 	}
 
 	public Object getAttr(String name) {
@@ -31,5 +27,9 @@ public class HttpSession{
 	
 	public void removeAttr(String name){
 		attrMap.remove(name);
+	}
+	
+	public void invalidate(){
+		SessionUtil.sessionMap.remove(sessionId);
 	}
 }

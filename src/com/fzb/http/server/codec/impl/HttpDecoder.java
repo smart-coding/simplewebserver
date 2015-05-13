@@ -8,6 +8,10 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import org.apache.log4j.Logger;
@@ -63,12 +67,13 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 					header.put(httpStr[i].split(":")[0], httpStr[i].substring(httpStr[i].indexOf(":")+2));
 				} 
 				String paramStr=null;
+				String turl=uri=pHeader.split(" ")[1];
+				if(turl.indexOf("?")!=-1){
+					uri=turl.substring(0,turl.indexOf("?"));
+					paramStr=turl.substring(turl.indexOf("?")+1);
+					quertStr=paramStr;
+				}
 				if(method==HttpMethod.GET){
-					String turl=url=pHeader.split(" ")[1];
-					if(turl.indexOf("?")!=-1){
-						url=turl.substring(0,turl.indexOf("?"));
-						paramStr=turl.substring(turl.indexOf("?")+1);
-					}
 					paramStrwapperToMap(paramStr);
 					flag=true;
 				}
@@ -76,11 +81,6 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 				// 1,POST 提交的数据一次性读取完成。
 				// 2,POST 提交的数据一次性读取不完。
 				else if(method==HttpMethod.POST){
-					String turl=url=pHeader.split(" ")[1];
-					if(turl.indexOf("?")!=-1){
-						url=turl.substring(0,turl.indexOf("?"));
-						paramStr=turl.substring(turl.indexOf("?")+1);
-					}
 					paramStrwapperToMap(paramStr);
 					Integer dateLength=Integer.parseInt(header.get("Content-Length"));
 					//FIXME 无法分配过大的Buffer
@@ -144,21 +144,25 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 	public void paramStrwapperToMap(String paramStr){
 		paramMap=new HashMap<String,String[]>();
 		if(paramStr!=null){
+			Map<String,Set<String>> tempParam=new HashMap<>();
 			String args[]=new String(paramStr).split("&");
 			for (String string : args) {
-				String kv[]=string.split("=");
-				if(paramMap.get(kv[0])!=null){
-					paramMap.get(kv[0])[paramMap.get(kv[0]).length]=kv[1];
-				}
-				else{
-					if(kv.length==2){
-						String vs[]=new String[]{kv[1]};
-						paramMap.put(kv[0], vs);
+				int idx=string.indexOf("=");
+				if(idx!=-1){
+					String key=string.substring(0,idx);
+					String value=string.substring(idx);
+					if(tempParam.containsKey(key)){
+						tempParam.get(key).add(value);
 					}
 					else{
-						paramMap.put(kv[0], null);
+						Set<String> tmpSet=new TreeSet<>();
+						tmpSet.add(value);
+						tempParam.put(key, tmpSet);
 					}
 				}
+			}
+			for (Entry<String, Set<String>> ent : tempParam.entrySet()) {
+				paramMap.put(ent.getKey(), ent.getValue().toArray(new String[ent.getValue().size()]));
 			}
 		}
 	}

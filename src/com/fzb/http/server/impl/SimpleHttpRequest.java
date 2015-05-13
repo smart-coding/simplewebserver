@@ -20,12 +20,14 @@ public class SimpleHttpRequest implements HttpRequest{
 	protected SocketAddress ipAddr;
 	protected Map<String,String> header=new HashMap<String,String>();
 	protected Map<String,String[]> paramMap;
-	protected String url;
+	protected String uri;
+	protected String quertStr;
 	protected HttpMethod method;
 	protected Cookie[] cookies;
 	protected HttpSession session;
 	protected Map<String,File> files=new HashMap<String,File>();
 	protected ByteBuffer dataBuffer;
+	protected String scheme="http";
 	
 	public SimpleHttpRequest(){
 	}
@@ -51,7 +53,7 @@ public class SimpleHttpRequest implements HttpRequest{
 
 	@Override
 	public String getUrl() {
-		return url;
+		return scheme+"://"+header.get("Host")+uri;
 	}
 
 	@Override
@@ -102,6 +104,24 @@ public class SimpleHttpRequest implements HttpRequest{
 			return paramMap.get(key)[0]=="on";
 		}
 		return false;
+	}
+
+	@Override
+	public String getUri() {
+		return uri;
+	}
+
+	@Override
+	public String getFullUrl() {
+		if(quertStr!=null){
+			return getUrl()+"?"+quertStr;
+		}
+		return getUrl();
+	}
+
+	@Override
+	public String getQueryStr() {
+		return quertStr;
 	}
 	
 }

@@ -147,7 +147,7 @@ public class SimpleServer implements ISocketServer{
 						}
 					}
 					key.cancel();
-					log.info(request.getUrl()+ " "+(System.currentTimeMillis()-beginTime) + " ms");
+					log.info(request.getUri()+ " "+(System.currentTimeMillis()-beginTime) + " ms");
 				}
 			}
 		};

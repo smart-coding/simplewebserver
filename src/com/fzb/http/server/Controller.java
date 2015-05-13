@@ -16,14 +16,14 @@ public class Controller extends HttpServer{
 		this.request=request;
 		this.response=response;
 		// 在请求路径中存在了. 认为其为文件
-		if(request.getUrl().indexOf(".")!=-1){
-			response.wirteFile(new File(new File(request.getRealPath()).getParentFile()+"/static/"+request.getUrl()));
+		if(request.getUri().indexOf(".")!=-1){
+			response.wirteFile(new File(new File(request.getRealPath()).getParentFile()+"/static/"+request.getUri()));
 			return;
 		}
-		Method method=Router.getInstance().getMethod(request.getUrl());
+		Method method=Router.getInstance().getMethod(request.getUri());
 		if(method==null){
-			if(request.getUrl().endsWith("/")){
-				response.renderHtml(request.getUrl()+"index.html");
+			if(request.getUri().endsWith("/")){
+				response.renderHtml(request.getUri()+"index.html");
 			}
 			else{
 				response.renderError(404);

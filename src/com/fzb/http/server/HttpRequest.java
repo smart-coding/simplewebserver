@@ -11,8 +11,11 @@ public interface HttpRequest {
 	Map<String,String[]> getParamMap();
 	String getHeader(String key);
 	String getRomterAddr();
+	String getUri();
 	String getUrl();
+	String getFullUrl();
 	String getRealPath();
+	String getQueryStr();
 	HttpMethod getMethod();
 	Cookie[] getCookies();
 	HttpSession getSession();
