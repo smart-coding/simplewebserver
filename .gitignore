@@ -1,1 +1,15 @@
 /bin
+
+.idea
+**/logs
+*.pid
+*.jar
+*.iml
+**/target
+**/temp/**
+/build/
+
+.settings
+.classpath
+.project
+*.*~
