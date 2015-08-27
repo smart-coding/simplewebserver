@@ -2,10 +2,7 @@ package com.fzb.http.server.impl;
 
 import com.fzb.common.util.HexaConversionUtil;
 import com.fzb.common.util.IOUtil;
-import com.fzb.http.kit.FreeMarkerKit;
-import com.fzb.http.kit.PathKit;
-import com.fzb.http.kit.StatusCodeKit;
-import com.fzb.http.kit.StringsUtil;
+import com.fzb.http.kit.*;
 import com.fzb.http.mimetype.MimeTypeUtil;
 import com.fzb.http.server.ChunkedOutputStream;
 import com.fzb.http.server.HttpRequest;
@@ -21,17 +18,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Logger;
 
 public class SimpleHttpResponse implements HttpResponse {
 
 
     private static String serverName = "SIMPLEWEBSERVER/" + StringsUtil.VERSIONSTR;
+    private static Logger LOGGER = LoggerUtil.getLogger(SimpleHttpResponse.class);
     private SocketChannel channel;
     private Map<String, String> header = new HashMap<String, String>();
     private HttpRequest request;
     private List<Cookie> cookieList = new ArrayList<Cookie>();
 
-    public SimpleHttpResponse(SocketChannel channel, HttpRequest request) throws IOException {
+
+    public SimpleHttpResponse(SocketChannel channel, HttpRequest request){
         this.channel = channel;
         this.request = request;
         Cookie[] cookies = request.getCookies();
@@ -45,7 +45,7 @@ public class SimpleHttpResponse implements HttpResponse {
     }
 
     @Override
-    public OutputStream getWirter() {
+    public OutputStream getWriter() {
         return null;
     }
 
@@ -55,32 +55,75 @@ public class SimpleHttpResponse implements HttpResponse {
     }
 
     @Override
-    public void wirteFile(File file) {
-        String chatset = "";
-        /*if(file.toString().endsWith(".html")){
-			chatset=";charset=UTF-8";
-		}*/
+    public void writeFile(File file) {
         if (file.exists()) {
             try {
                 // getMimeType
                 ByteArrayOutputStream fout = new ByteArrayOutputStream();
                 if (file.isDirectory()) {
-                    renderByErrorStatusCode(302);
+                    renderByStatusCode(302);
                     return;
                 }
                 String ext = file.getName().substring(file.getName().lastIndexOf(".") + 1);
                 if (header.get("Content-Type") == null) {
-                    header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext) + chatset);
+                    header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext));
                 }
-                fout.write(warpperData(200, IOUtil.getByteByInputStream(new FileInputStream(file))));
-                send(fout);
+                if (file.length() < 1024 * 1024) {
+                    fout.write(wrapperData(200, IOUtil.getByteByInputStream(new FileInputStream(file))));
+                    send(fout);
+                } else {
+                    fout.write(wrapperResponseHeader(200, file.length()));
+                    send(fout, false);
+                    //处理大文件
+                    FileInputStream fileInputStream = new FileInputStream(file);
+                    int length;
+                    byte tempByte[] = new byte[512 * 1204];
+                    while ((length = fileInputStream.read(tempByte)) != -1) {
+                        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+                        bout.write(tempByte, 0, length);
+                        send(bout, false);
+                    }
+                    fileInputStream.close();
+                    channel.close();
+                }
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
         } else {
-            renderByErrorStatusCode(404);
+            renderByStatusCode(404);
         }
     }
+
+    private void send(ByteArrayOutputStream fout, boolean close) {
+        ByteBuffer buffer = ByteBuffer.allocate(fout.toByteArray().length);
+        try {
+            buffer.put(fout.toByteArray());
+            buffer.flip();
+
+            while (buffer.hasRemaining()) {
+                int len = channel.write(buffer);
+                if (len < 0) {
+                    throw new EOFException();
+                }
+            }
+            if (close) {
+                channel.close();
+            }
+        } catch (Exception e) {
+            //e.printStackTrace();
+
+        } finally {
+            if (fout != null) {
+                try {
+                    fout.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
 
     private void send(ByteArrayOutputStream fout) {
         ByteBuffer buffer = ByteBuffer.allocate(fout.toByteArray().length);
@@ -106,10 +149,10 @@ public class SimpleHttpResponse implements HttpResponse {
             String body = new JSONSerializer().deepSerialize(json);
             ByteArrayOutputStream fout = new ByteArrayOutputStream();
             header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("json") + ";charset=UTF-8");
-            fout.write(warpperData(200, body.getBytes("UTF-8")));
+            fout.write(wrapperData(200, body.getBytes("UTF-8")));
             send(fout);
         } catch (FileNotFoundException e) {
-            renderByErrorStatusCode(404);
+            renderByStatusCode(404);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -119,44 +162,63 @@ public class SimpleHttpResponse implements HttpResponse {
      * @return
      * @throws IOException
      */
-    private byte[] warpperData(Integer statusCode, byte[] data) throws IOException {
-        header.put("server", serverName);
-        if (data.length > 0) {
-            //header.put("Transfer-Encoding", "chunked");
-            header.put("Content-Length", data.length + "");
-        }
+    private byte[] wrapperData(Integer statusCode, byte[] data) throws IOException {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
-        bout.write(("HTTP/1.1 " + statusCode + " " + StatusCodeKit.getStatusCode(statusCode) + "\r\n").getBytes());
-        for (Entry<String, String> he : header.entrySet()) {
-            bout.write(new String(he.getKey() + ": " + he.getValue() + "\r\n").getBytes());
-        }
-        //deal cookie
-        for (Cookie cookie : cookieList) {
-            bout.write(new String("Set-Cookie: " + cookie + "\r\n").getBytes());
-        }
-        bout.write("\r\n".getBytes());
+        bout.write(wrapperResponseHeader(statusCode, data.length));
         if (data.length > 0) {
-            //bout.write(warpperToChunkedByte(data));
             bout.write(data);
         }
         return bout.toByteArray();
     }
 
-    private void renderByErrorStatusCode(Integer errorCode) {
-        if (errorCode == 404) {
+    private byte[] wrapperResponseHeader(Integer statusCode, long length) {
+        header.put("Content-Length", length + "");
+        return wrapperBaseResponseHeader(statusCode);
+    }
+
+    public byte[] wrapperBaseResponseHeader(int statusCode) {
+        header.put("server", serverName);
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        try {
+            bout.write(("HTTP/1.1 " + statusCode + " " + StatusCodeKit.getStatusCode(statusCode) + "\r\n").getBytes());
+            for (Entry<String, String> he : header.entrySet()) {
+                bout.write((he.getKey() + ": " + he.getValue() + "\r\n").getBytes());
+            }
+            //deal cookie
+            for (Cookie cookie : cookieList) {
+                bout.write(("Set-Cookie: " + cookie + "\r\n").getBytes());
+            }
+            bout.write("\r\n".getBytes());
+            return bout.toByteArray();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new byte[]{};
+    }
+
+    private byte[] wrapperResponseHeader(Integer statusCode) {
+        header.put("Transfer-Encoding", "chunked");
+        return wrapperBaseResponseHeader(statusCode);
+    }
+
+
+    private void renderByStatusCode(Integer errorCode) {
+        if (errorCode > 399) {
             ByteArrayOutputStream fout = new ByteArrayOutputStream();
             try {
-                header.put("Content-Type", "text/html;charset=UTF-8");
-                fout.write(warpperData(404, StringsUtil.getNotFoundStr().getBytes()));
+                header.put("Content-Type", "text/html");
+                fout.write(wrapperData(errorCode, StringsUtil.getHtmlStrByStatusCode(errorCode).getBytes()));
                 send(fout);
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
-        } else if (errorCode == 302) {
+        } else if (errorCode >= 300 && errorCode < 400) {
             ByteArrayOutputStream fout = new ByteArrayOutputStream();
             try {
-                header.put("Location", "http://" + request.getHeader("Host") + "/" + request.getUri() + "index.html");
-                fout.write(warpperData(302, new String().getBytes()));
+                if (!header.containsKey("Location")) {
+                    header.put("Location", "http://" + request.getHeader("Host") + "/" + request.getUri() + "index.html");
+                }
+                fout.write(wrapperData(errorCode, new byte[]{}));
                 send(fout);
             } catch (IOException e1) {
                 e1.printStackTrace();
@@ -165,13 +227,13 @@ public class SimpleHttpResponse implements HttpResponse {
     }
 
     @Override
-    public void renderError(int errorCode) {
-        renderByErrorStatusCode(errorCode);
+    public void renderCode(int code) {
+        renderByStatusCode(code);
     }
 
     @Override
     public void renderHtml(String urlPath) {
-        wirteFile(new File(PathKit.getStaticPath() + urlPath));
+        writeFile(new File(PathKit.getStaticPath() + urlPath));
     }
 
     @Override
@@ -184,10 +246,10 @@ public class SimpleHttpResponse implements HttpResponse {
         try {
             ByteArrayOutputStream fout = new ByteArrayOutputStream();
             header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("html") + ";charset=UTF-8");
-            fout.write(warpperData(200, htmlContent.getBytes("UTF-8")));
+            fout.write(wrapperData(200, htmlContent.getBytes("UTF-8")));
             send(fout);
         } catch (FileNotFoundException e) {
-            renderByErrorStatusCode(404);
+            renderByStatusCode(404);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -196,7 +258,6 @@ public class SimpleHttpResponse implements HttpResponse {
 
     private byte[] warpperToChunkedByte(byte[] data) {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
-        System.out.println("before size " + data.length);
         ChunkedOutputStream out = new ChunkedOutputStream(bout);
         try {
             int block = 128;
@@ -208,7 +269,6 @@ public class SimpleHttpResponse implements HttpResponse {
             if (last != 0) {
                 out.write(HexaConversionUtil.subByts(data, blockCount * block, last));
             }
-            System.out.println("now size " + bout.toByteArray().length);
             out.close();
             return bout.toByteArray();
         } catch (IOException e) {
@@ -227,7 +287,7 @@ public class SimpleHttpResponse implements HttpResponse {
         ByteArrayOutputStream fout = new ByteArrayOutputStream();
         header.put("Location", url);
         try {
-            fout.write(warpperData(302, new byte[0]));
+            fout.write(wrapperData(302, new byte[0]));
             send(fout);
         } catch (IOException e) {
             e.printStackTrace();
@@ -235,18 +295,53 @@ public class SimpleHttpResponse implements HttpResponse {
     }
 
     @Override
-    public void forword(String url) {
-        redirect("http://" + request.getHeader("Host") + "/" + url);
+    public void forward(String url) {
+        redirect(request.getScheme() + "://" + request.getHeader("Host") + "/" + url);
     }
 
     @Override
     public void renderFile(File file) {
         header.put("Content-Disposition", "attachment;filename=" + file.getName());
-        wirteFile(file);
+        writeFile(file);
     }
 
     @Override
     public void renderFreeMarker(String name) {
         renderHtmlStr(FreeMarkerKit.renderToFM(name, request));
+    }
+
+    @Override
+    public void write(InputStream inputStream) {
+        write(inputStream, 200);
+    }
+
+    @Override
+    public void write(InputStream inputStream, int code) {
+        try {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            byteArrayOutputStream.write(wrapperResponseHeader(code));
+            send(byteArrayOutputStream, false);
+            if (inputStream != null) {
+                byte[] bytes = new byte[1024];
+                int length;
+                ByteArrayOutputStream tmpOut = new ByteArrayOutputStream();
+                ChunkedOutputStream chunkedOutputStream = new ChunkedOutputStream(tmpOut);
+                while ((length = inputStream.read(bytes)) != -1) {
+                    chunkedOutputStream.write(HexaConversionUtil.subByts(bytes, 0, length));
+                }
+                chunkedOutputStream.close();
+                send(tmpOut);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

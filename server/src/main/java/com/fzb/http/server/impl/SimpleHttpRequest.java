@@ -45,7 +45,7 @@ public class SimpleHttpRequest implements HttpRequest {
     }
 
     @Override
-    public String getRomterAddr() {
+    public String getRemoteHost() {
         return ((InetSocketAddress) ipAddr).getHostString();
     }
 
@@ -102,7 +102,7 @@ public class SimpleHttpRequest implements HttpRequest {
     @Override
     public boolean getParaToBool(String key) {
         if (paramMap.get(key) != null) {
-            return paramMap.get(key)[0] == "on";
+            return "on".equals(paramMap.get(key)[0]);
         }
         return false;
     }

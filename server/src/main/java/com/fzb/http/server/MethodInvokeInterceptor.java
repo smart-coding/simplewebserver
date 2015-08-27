@@ -4,7 +4,6 @@ import com.fzb.http.kit.LoggerUtil;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -18,12 +17,12 @@ public class MethodInvokeInterceptor implements Interceptor {
     @Override
     public boolean doInterceptor(HttpRequest request, HttpResponse response) {
         // 在请求路径中存在了. 认为其为文件
-        if (request.getUri().indexOf(".") != -1) {
-            response.wirteFile(new File(new File(request.getRealPath()).getParentFile() + "/static/" + request.getUri()));
+        if (request.getUri().contains("-")) {
+            response.writeFile(new File(new File(request.getRealPath()).getParentFile() + "/static/" + request.getUri()));
             return false;
         }
         Method method;
-        if (request.getUri().indexOf("-") != -1) {
+        if (request.getUri().contains("-")) {
             method = Router.getInstance().getMethod(request.getUri().substring(0, request.getUri().indexOf("-")));
         } else {
             method = Router.getInstance().getMethod(request.getUri());
@@ -37,7 +36,7 @@ public class MethodInvokeInterceptor implements Interceptor {
             if (request.getUri().endsWith("/")) {
                 response.renderHtml(request.getUri() + "index.html");
             } else {
-                response.renderError(404);
+                response.renderCode(404);
             }
             return false;
         }

@@ -3,21 +3,22 @@ package com.fzb.http.server;
 import com.fzb.http.server.cookie.Cookie;
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 public interface HttpResponse {
 
-    void wirteFile(File file);
+    void writeFile(File file);
 
     void renderHtml(String urlPath);
 
     void renderJson(Object json);
 
-    OutputStream getWirter();
+    OutputStream getWriter();
 
     void setHeader(String key, String value);
 
-    void renderError(int errorCode);
+    void renderCode(int errorCode);
 
     void addCookie(Cookie cookie);
 
@@ -27,9 +28,14 @@ public interface HttpResponse {
 
     void redirect(String url);
 
-    void forword(String url);
+    void forward(String url);
 
     void renderFile(File file);
 
     void renderFreeMarker(String name);
+
+    void write(InputStream inputStream);
+
+    void write(InputStream inputStream, int code);
+
 }

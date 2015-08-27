@@ -12,7 +12,7 @@ public interface HttpRequest {
 
     String getHeader(String key);
 
-    String getRomterAddr();
+    String getRemoteHost();
 
     String getUri();
 

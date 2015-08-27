@@ -1,24 +1,25 @@
 package com.fzb.http.server.impl;
 
-import com.fzb.http.kit.LoggerUtil;
 import com.fzb.http.kit.ConfigKit;
-import com.fzb.http.kit.PathKit;
+import com.fzb.http.kit.LoggerUtil;
 import com.fzb.http.kit.StringsUtil;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
 import com.fzb.http.server.Interceptor;
 import com.fzb.http.server.InterceptorHelper;
 import com.fzb.http.server.codec.impl.HttpDecoder;
+import com.fzb.http.server.execption.ContentToBigException;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.*;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +33,7 @@ public class SimpleServer implements ISocketServer {
 
     private ServerSocketChannel serverChannel;
     private Selector selector;
+    private int timeout = 10;
     private ExecutorService service = Executors.newFixedThreadPool(10);
     private Map<Socket, HttpDecoder> decoderMap = new ConcurrentHashMap<Socket, HttpDecoder>();
 
@@ -48,7 +50,7 @@ public class SimpleServer implements ISocketServer {
                 Iterator<SelectionKey> iter = keys.iterator();
                 while (iter.hasNext()) {
                     SelectionKey key = iter.next();
-                    SocketChannel channel = null;
+                    SocketChannel channel;
                     if (key.isAcceptable()) {
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
                         channel = server.accept();
@@ -76,25 +78,19 @@ public class SimpleServer implements ISocketServer {
     }
 
     @Override
-    public void distory() {
+    public void destroy() {
 
     }
 
     @Override
     public void create() {
         try {
-            Properties prop = new Properties();
-            prop.load(new FileInputStream(new File(PathKit
-                    .getConfFile("/conf.properties"))));
-            // server=new
-            // ServerSocket(Integer.parseInt(prop.getProperty("server.port")));
+
             serverChannel = ServerSocketChannel.open();
             serverChannel.socket().bind(new InetSocketAddress(ConfigKit.getServerPort()));
-            serverChannel.configureBlocking(false); // 设置为非阻塞方式,如果为true
-            // 那么就为传统的阻塞方式
-            selector = Selector.open(); // 静态方法 实例化selector
-            serverChannel.register(selector, SelectionKey.OP_ACCEPT); // 注册
-            // OP_ACCEPT事件
+            serverChannel.configureBlocking(false);
+            selector = Selector.open();
+            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
             LOGGER.info("simpler Server listening on port -> " + ConfigKit.getServerPort());
 
         } catch (Exception e) {
@@ -104,21 +100,41 @@ public class SimpleServer implements ISocketServer {
 
     @Override
     public void dispose(final SocketChannel channel, final HttpDecoder request, final SelectionKey key) {
-        final long beginTime = System.currentTimeMillis();
+        final HttpResponse response = new SimpleHttpResponse(channel, request);
         try {
             if (!request.doDecode(channel) || channel.socket().isClosed()) {
                 return;
             }
-        } catch (Exception e1) {
-            key.cancel();
+        } catch (Exception e) {
+            if (e instanceof ContentToBigException) {
+                response.renderCode(413);
+            } else {
+                response.renderCode(500);
+            }
             return;
         }
         Thread thread = new Thread() {
             @Override
             public void run() {
-                HttpResponse response = null;
                 try {
-                    response = new SimpleHttpResponse(channel, request);
+                    new Thread() {
+                        @Override
+                        public void run() {
+                            while (true) {
+                                try {
+                                    Thread.sleep(1000);
+                                    if (channel.socket().isClosed()) {
+                                        break;
+                                    }
+                                    if (System.currentTimeMillis() - request.getCreateTime() > timeout * 1000) {
+                                        response.renderCode(504);
+                                    }
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    };
                     List<Class<Interceptor>> interceptors = InterceptorHelper.getInstance().getInterceptors();
                     for (Class<Interceptor> interceptor : interceptors) {
                         if (!interceptor.newInstance().doInterceptor(request, response)) {
@@ -126,21 +142,19 @@ public class SimpleServer implements ISocketServer {
                         }
                     }
                     /*if(flag){
-						sim.doGet(request, response);
+                        sim.doGet(request, response);
 					}*/
                 } catch (Exception e) {
                     e.printStackTrace();
-                    LOGGER.log(Level.SEVERE,"dispose error" + e.getMessage());
+                    LOGGER.log(Level.SEVERE, "dispose error" + e.getMessage());
                 } finally {
                     decoderMap.remove(channel.socket());
-                    if (response != null) {
-                        // 渲染错误页面
-                        if (!channel.socket().isClosed()) {
-                            response.renderError(404);
-                        }
+                    // 渲染错误页面
+                    if (!channel.socket().isClosed()) {
+                        response.renderCode(404);
                     }
                     key.cancel();
-                    LOGGER.info(request.getUri() + " " + (System.currentTimeMillis() - beginTime) + " ms");
+                    LOGGER.info(request.getUri() + " " + (System.currentTimeMillis() - request.getCreateTime()) + " ms");
                 }
             }
         };

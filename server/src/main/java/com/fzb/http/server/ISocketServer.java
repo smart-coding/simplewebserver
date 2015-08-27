@@ -9,7 +9,7 @@ public interface ISocketServer {
 
     void listener();
 
-    void distory();
+    void destroy();
 
     void create();
 

@@ -2,11 +2,13 @@ package com.fzb.http.server.codec.impl;
 
 import com.fzb.common.util.HexaConversionUtil;
 import com.fzb.common.util.IOUtil;
+import com.fzb.http.kit.ConfigKit;
 import com.fzb.http.kit.LoggerUtil;
 import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.execption.ContentToBigException;
 import com.fzb.http.server.impl.SimpleHttpRequest;
 import com.fzb.http.server.session.HttpSession;
 import com.fzb.http.server.session.SessionUtil;
@@ -24,9 +26,10 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
 
     private static final String split = "\r\n\r\n";
+    private long createTime;
 
     public HttpDecoder() {
-
+        createTime = System.currentTimeMillis();
     }
 
     @Override
@@ -66,16 +69,19 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                     queryStr = paramStr;
                 }
                 if (method == HttpMethod.GET) {
-                    paramStrwapperToMap(paramStr);
+                    wrapperParamStrToMap(paramStr);
                     flag = true;
                 }
                 // 存在2种情况
                 // 1,POST 提交的数据一次性读取完成。
                 // 2,POST 提交的数据一次性读取不完。
                 else if (method == HttpMethod.POST) {
-                    paramStrwapperToMap(paramStr);
+                    wrapperParamStrToMap(paramStr);
                     Integer dateLength = Integer.parseInt(header.get("Content-Length"));
-                    //FIXME 无法分配过大的Buffer
+                    if (dateLength > ConfigKit.getMaxUploadSize()) {
+                        throw new ContentToBigException("Content-Length outSide the max uploadSize "
+                                + ConfigKit.getMaxUploadSize());
+                    }
                     dataBuffer = ByteBuffer.allocate(dateLength);
                     Integer remainLen = fullStr.indexOf(split) + split.getBytes().length;
                     byte[] remain = HexaConversionUtil.subByts(date, remainLen, date.length - remainLen);
@@ -131,7 +137,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
         return flag;
     }
 
-    public void paramStrwapperToMap(String paramStr) {
+    public void wrapperParamStrToMap(String paramStr) {
         paramMap = new HashMap<String, String[]>();
         if (paramStr != null) {
             Map<String, Set<String>> tempParam = new HashMap<>();
@@ -189,7 +195,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                     String fileName = header.get("Content-Disposition").split(";")[2].split("=")[1].replace("\"", "");
                     File file = new File(PathKit.getRootPath() + "/temp/" + fileName);
                     files.put(inputName, file);
-                    int length1 = sb2.toString().split("\r\n")[0].getBytes().length + new String("\r\n").getBytes().length;
+                    int length1 = sb2.toString().split("\r\n")[0].getBytes().length + "\r\n".getBytes().length;
                     int length2 = sb2.toString().getBytes().length + 2;
                     int dataLength = Integer.parseInt(header.get("Content-Length")) - length1 - length2 - split.getBytes().length;
                     IOUtil.writeBytesToFile(HexaConversionUtil.subByts(dataBuffer.array(), length2, dataLength), file);
@@ -198,12 +204,15 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                 }
             } else {
                 paramStr = new String(dataBuffer.array());
-                paramStrwapperToMap(paramStr);
+                wrapperParamStrToMap(paramStr);
             }
         } else {
             paramStr = new String(dataBuffer.array());
-            paramStrwapperToMap(paramStr);
+            wrapperParamStrToMap(paramStr);
         }
     }
 
+    public long getCreateTime() {
+        return createTime;
+    }
 }

@@ -23,12 +23,11 @@ public class FreeMarkerKit {
             temp.process(httpRequest.getAttr(), writer);
             writer.flush();
             writer.close();
-            String str = new String(out.toByteArray());
-            return str;
+            return new String(out.toByteArray());
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return StringsUtil.getNotFoundStr();
+        return StringsUtil.getHtmlStrByStatusCode(404);
     }
 
     public static void init(String basePath) throws Exception {
