@@ -33,7 +33,7 @@ public class SimpleServer implements ISocketServer {
 
     private ServerSocketChannel serverChannel;
     private Selector selector;
-    private int timeout = 10;
+    private int timeout;
     private ExecutorService service = Executors.newFixedThreadPool(10);
     private Map<Socket, HttpDecoder> decoderMap = new ConcurrentHashMap<Socket, HttpDecoder>();
 
@@ -92,6 +92,7 @@ public class SimpleServer implements ISocketServer {
             selector = Selector.open();
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
             LOGGER.info("simpler Server listening on port -> " + ConfigKit.getServerPort());
+            timeout = Integer.parseInt(ConfigKit.get("server.timeout", 60).toString());
 
         } catch (Exception e) {
             e.printStackTrace();

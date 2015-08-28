@@ -33,4 +33,12 @@ public class ConfigKit {
         }
         return 6058;
     }
+
+    public static Object get(String key,Object defaultValue) {
+        Object obj = prop.get(key);
+        if (obj != null) {
+            return obj;
+        }
+        return defaultValue;
+    }
 }
