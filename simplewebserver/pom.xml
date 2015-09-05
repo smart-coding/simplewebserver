@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>simplewebserver-demo</artifactId>
-        <groupId>com.fzb</groupId>
-        <version>1.0</version>
-    </parent>
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>demo</artifactId>
+    <name>simplewebserver</name>
+    <groupId>com.fzb</groupId>
+    <artifactId>simplewebserver</artifactId>
+    <version>1.2.1</version>
+    <packaging>pom</packaging>
     <build>
         <resources>
             <resource>
-                <directory>src/main/java</directory>
+                <directory>src</directory>
                 <includes>
                     <include>**/*.properties</include>
                 </includes>
@@ -27,26 +26,24 @@
                 </configuration>
             </plugin>
             <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.5.5</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>com.fzb.demo.file.ServerRun</mainClass>
-                        </manifest>
-                    </archive>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
+                    <classesDirectory>target/classes</classesDirectory>
                 </configuration>
             </plugin>
         </plugins>
     </build>
     <dependencies>
         <dependency>
-            <groupId>com.fzb</groupId>
-            <artifactId>simplewebserver</artifactId>
-            <version>1.2.1</version>
+            <groupId>net.sf.flexjson</groupId>
+            <artifactId>flexjson</artifactId>
+            <version>3.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+            <version>2.3.23</version>
         </dependency>
     </dependencies>
 </project>

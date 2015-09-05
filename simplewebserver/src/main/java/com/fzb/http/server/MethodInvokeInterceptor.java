@@ -1,6 +1,7 @@
 package com.fzb.http.server;
 
 import com.fzb.http.kit.LoggerUtil;
+import com.fzb.http.kit.PathKit;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -17,8 +18,8 @@ public class MethodInvokeInterceptor implements Interceptor {
     @Override
     public boolean doInterceptor(HttpRequest request, HttpResponse response) {
         // 在请求路径中存在了. 认为其为文件
-        if (request.getUri().contains("-")) {
-            response.writeFile(new File(new File(request.getRealPath()).getParentFile() + "/static/" + request.getUri()));
+        if (request.getUri().contains(".")) {
+            response.writeFile(new File(PathKit.getStaticPath() + request.getUri()));
             return false;
         }
         Method method;
