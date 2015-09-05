@@ -72,4 +72,4 @@ public class ServerRun extends RouterServer{
 * webServer 默认端口为 `6058` 在conf/conf.properties 中
 * 使用 `FreeMarkerKit.init` 初始化模板文件根目录
 * 服务器上时建议打包为 `jar` 文件运行（推荐使用 maven，jar文件路径与`conf` 文件夹同目录）
-* 执行 `sh simplewebserver/package.sh` 将simplewebserver 添加到本地maven仓库中
+* 执行 `cd simplewebserver && sh package.sh ` 将 simplewebserver 添加到本地maven仓库中
