@@ -5,12 +5,12 @@
     <name>simplewebserver</name>
     <groupId>com.fzb</groupId>
     <artifactId>simplewebserver</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.2</version>
     <packaging>jar</packaging>
     <build>
         <resources>
             <resource>
-                <directory>src</directory>
+                <directory>src/main/resource</directory>
                 <includes>
                     <include>**/*.properties</include>
                 </includes>

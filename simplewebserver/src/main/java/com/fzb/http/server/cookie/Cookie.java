@@ -3,7 +3,7 @@ package com.fzb.http.server.cookie;
 
 public class Cookie {
 
-    public static final String JSESSIONID = "JSESSIONID";
+    public static String JSESSIONID = "JSESSIONID";
     private String name;
     private String value;
     private String domain;

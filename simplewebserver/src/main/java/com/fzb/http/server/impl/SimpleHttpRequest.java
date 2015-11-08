@@ -134,4 +134,14 @@ public class SimpleHttpRequest implements HttpRequest {
     public String getScheme() {
         return scheme;
     }
+
+    @Override
+    public Map<String, String> getHeaderMap() {
+        return header;
+    }
+
+    @Override
+    public byte[] getContentByte() {
+        return dataBuffer.array();
+    }
 }

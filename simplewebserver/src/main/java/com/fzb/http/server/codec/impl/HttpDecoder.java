@@ -1,7 +1,7 @@
 package com.fzb.http.server.codec.impl;
 
-import com.fzb.common.util.HexaConversionUtil;
-import com.fzb.common.util.IOUtil;
+import com.fzb.http.kit.HexConversionUtil;
+import com.fzb.http.kit.IOUtil;
 import com.fzb.http.kit.ConfigKit;
 import com.fzb.http.kit.LoggerUtil;
 import com.fzb.http.kit.PathKit;
@@ -27,9 +27,15 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
     private static final String split = "\r\n\r\n";
     private long createTime;
+    private boolean disableCookie;
 
     public HttpDecoder() {
+        this(false);
+    }
+
+    public HttpDecoder(boolean disableCookie) {
         createTime = System.currentTimeMillis();
+        this.disableCookie = disableCookie;
     }
 
     @Override
@@ -42,7 +48,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
             channel.socket().close();
             return true;
         }
-        byte[] date = HexaConversionUtil.subByts(buffer1.array(), 0, length);
+        byte[] date = HexConversionUtil.subBytes(buffer1.array(), 0, length);
         //InputStream in=channel.socket().getInputStream();
         String fullStr = new String(date);
         boolean flag = false;
@@ -84,45 +90,16 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                     }
                     dataBuffer = ByteBuffer.allocate(dateLength);
                     Integer remainLen = fullStr.indexOf(split) + split.getBytes().length;
-                    byte[] remain = HexaConversionUtil.subByts(date, remainLen, date.length - remainLen);
+                    byte[] remain = HexConversionUtil.subBytes(date, remainLen, date.length - remainLen);
                     dataBuffer.put(remain);
                     flag = !dataBuffer.hasRemaining();
                     if (flag) {
                         dealPostData();
                     }
                 }
-                // deal with cookie
-                boolean createCookie = true;
-                if (header.get("Cookie") != null) {
-                    cookies = Cookie.saxToCookie(header.get("Cookie").toString());
-                    String jsessionid = Cookie.getJSessionId(header.get("Cookie").toString());
-                    if (jsessionid == null) {
-                        Cookie[] tcookies = new Cookie[cookies.length + 1];
-                        // copy cookie
-                        for (int i = 0; i < cookies.length; i++) {
-                            tcookies[i] = cookies[i];
-                        }
-                        cookies = tcookies;
-                    } else {
-                        session = SessionUtil.getSessionById(jsessionid);
-                        if (session != null) {
-                            createCookie = false;
-                        }
-                    }
-                }
-                if (createCookie) {
-                    if (cookies == null) {
-                        cookies = new Cookie[1];
-                    }
-                    Cookie cookie = new Cookie(true);
-                    String jsessionid = UUID.randomUUID().toString();
-                    cookie.setName(Cookie.JSESSIONID);
-                    cookie.setPath("/");
-                    cookie.setValue(jsessionid);
-                    cookies[cookies.length - 1] = cookie;
-                    session = new HttpSession(jsessionid);
-                    SessionUtil.sessionMap.put(jsessionid, session);
-                    LOGGER.info("create a Cookie " + cookie.toString());
+                if (!disableCookie) {
+                    // deal with cookie
+                    dealWithCookie();
                 }
             }
         } else {
@@ -135,6 +112,41 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
             }
         }
         return flag;
+    }
+
+    private void dealWithCookie() {
+        boolean createCookie = true;
+        if (header.get("Cookie") != null) {
+            cookies = Cookie.saxToCookie(header.get("Cookie").toString());
+            String jsessionid = Cookie.getJSessionId(header.get("Cookie").toString());
+            if (jsessionid == null) {
+                Cookie[] tcookies = new Cookie[cookies.length + 1];
+                // copy cookie
+                for (int i = 0; i < cookies.length; i++) {
+                    tcookies[i] = cookies[i];
+                }
+                cookies = tcookies;
+            } else {
+                session = SessionUtil.getSessionById(jsessionid);
+                if (session != null) {
+                    createCookie = false;
+                }
+            }
+        }
+        if (createCookie) {
+            if (cookies == null) {
+                cookies = new Cookie[1];
+            }
+            Cookie cookie = new Cookie(true);
+            String jsessionid = UUID.randomUUID().toString();
+            cookie.setName(Cookie.JSESSIONID);
+            cookie.setPath("/");
+            cookie.setValue(jsessionid);
+            cookies[cookies.length - 1] = cookie;
+            session = new HttpSession(jsessionid);
+            SessionUtil.sessionMap.put(jsessionid, session);
+            LOGGER.info("create a Cookie " + cookie.toString());
+        }
     }
 
     public void wrapperParamStrToMap(String paramStr) {
@@ -198,7 +210,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                     int length1 = sb2.toString().split("\r\n")[0].getBytes().length + "\r\n".getBytes().length;
                     int length2 = sb2.toString().getBytes().length + 2;
                     int dataLength = Integer.parseInt(header.get("Content-Length")) - length1 - length2 - split.getBytes().length;
-                    IOUtil.writeBytesToFile(HexaConversionUtil.subByts(dataBuffer.array(), length2, dataLength), file);
+                    IOUtil.writeBytesToFile(HexConversionUtil.subBytes(dataBuffer.array(), length2, dataLength), file);
                     paramMap = new HashMap<>();
 
                 }

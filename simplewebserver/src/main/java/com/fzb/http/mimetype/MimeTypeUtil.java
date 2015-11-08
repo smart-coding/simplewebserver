@@ -1,8 +1,5 @@
 package com.fzb.http.mimetype;
 
-import com.fzb.http.kit.PathKit;
-
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +13,7 @@ public class MimeTypeUtil {
     static {
         Properties prop = new Properties();
         try {
-            prop.load(new FileInputStream(PathKit.getConfFile("mimetype.properties")));
+            prop.load(MimeTypeUtil.class.getResourceAsStream("/conf/mimetype.properties"));
             for (Entry<Object, Object> p : prop.entrySet()) {
                 map.put(p.getKey().toString(), p.getValue().toString());
             }

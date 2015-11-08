@@ -31,10 +31,10 @@ public class SimpleServer implements ISocketServer {
 
     private static final Logger LOGGER = LoggerUtil.getLogger(SimpleServer.class);
 
-    private ServerSocketChannel serverChannel;
     private Selector selector;
     private int timeout;
-    private ExecutorService service = Executors.newFixedThreadPool(10);
+    private boolean disableCookie;
+    protected ExecutorService service = Executors.newFixedThreadPool(10);
     private Map<Socket, HttpDecoder> decoderMap = new ConcurrentHashMap<Socket, HttpDecoder>();
 
     @Override
@@ -63,7 +63,7 @@ public class SimpleServer implements ISocketServer {
                         if (channel != null) {
                             HttpDecoder request = decoderMap.get(channel.socket());
                             if (request == null) {
-                                request = new HttpDecoder();
+                                request = new HttpDecoder(disableCookie);
                                 decoderMap.put(channel.socket(), request);
                             }
                             dispose(channel, request, key);
@@ -85,15 +85,14 @@ public class SimpleServer implements ISocketServer {
     @Override
     public void create() {
         try {
-
-            serverChannel = ServerSocketChannel.open();
+            ServerSocketChannel serverChannel = ServerSocketChannel.open();
             serverChannel.socket().bind(new InetSocketAddress(ConfigKit.getServerPort()));
             serverChannel.configureBlocking(false);
             selector = Selector.open();
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
             LOGGER.info("simpler Server listening on port -> " + ConfigKit.getServerPort());
             timeout = Integer.parseInt(ConfigKit.get("server.timeout", 60).toString());
-
+            disableCookie = Boolean.valueOf(ConfigKit.get("server.disableCookie", false).toString());
         } catch (Exception e) {
             e.printStackTrace();
         }

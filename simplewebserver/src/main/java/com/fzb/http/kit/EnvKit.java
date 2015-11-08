@@ -1,7 +1,5 @@
 package com.fzb.http.kit;
 
-import com.fzb.common.util.IOUtil;
-
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;

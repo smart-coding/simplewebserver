@@ -2,7 +2,8 @@ package com.fzb.http.server;
 
 public enum HttpMethod {
 
-    PUT("PUT"), POST("POST"), GET("GET");
+    PUT("PUT"), POST("POST"), GET("GET"), DELETE("DELETE"),
+    CONNECT("CONNECT"), HEAD("HEAD"), TRACE("TRACE");
     private String method;
 
     private HttpMethod(String method) {

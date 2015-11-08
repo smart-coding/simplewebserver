@@ -1,6 +1,7 @@
 package com.fzb.http.kit;
 
 import com.fzb.http.server.HttpRequest;
+import com.fzb.http.server.session.HttpSession;
 import freemarker.template.Configuration;
 import freemarker.template.DefaultObjectWrapper;
 import freemarker.template.Template;
@@ -19,7 +20,11 @@ public class FreeMarkerKit {
             Template temp = cfg.getTemplate(name + ".ftl");
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Writer writer = new OutputStreamWriter(out);
-            httpRequest.getAttr().put("session", httpRequest.getSession().getAttrMap());
+            HttpSession httpSession = httpRequest.getSession();
+            if (httpSession != null) {
+                httpRequest.getAttr().put("session", httpSession);
+                httpRequest.getAttr().put("request", httpRequest);
+            }
             temp.process(httpRequest.getAttr(), writer);
             writer.flush();
             writer.close();

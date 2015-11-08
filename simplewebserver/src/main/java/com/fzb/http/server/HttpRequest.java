@@ -41,4 +41,8 @@ public interface HttpRequest {
     Map<String, Object> getAttr();
 
     String getScheme();
+
+    Map<String,String> getHeaderMap();
+
+    byte[] getContentByte();
 }

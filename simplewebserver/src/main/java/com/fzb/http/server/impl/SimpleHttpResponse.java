@@ -1,7 +1,7 @@
 package com.fzb.http.server.impl;
 
-import com.fzb.common.util.HexaConversionUtil;
-import com.fzb.common.util.IOUtil;
+import com.fzb.http.kit.HexConversionUtil;
+import com.fzb.http.kit.IOUtil;
 import com.fzb.http.kit.*;
 import com.fzb.http.mimetype.MimeTypeUtil;
 import com.fzb.http.server.ChunkedOutputStream;
@@ -31,7 +31,7 @@ public class SimpleHttpResponse implements HttpResponse {
     private List<Cookie> cookieList = new ArrayList<Cookie>();
 
 
-    public SimpleHttpResponse(SocketChannel channel, HttpRequest request){
+    public SimpleHttpResponse(SocketChannel channel, HttpRequest request) {
         this.channel = channel;
         this.request = request;
         Cookie[] cookies = request.getCookies();
@@ -126,21 +126,7 @@ public class SimpleHttpResponse implements HttpResponse {
 
 
     private void send(ByteArrayOutputStream fout) {
-        ByteBuffer buffer = ByteBuffer.allocate(fout.toByteArray().length);
-        try {
-            buffer.put(fout.toByteArray());
-            buffer.flip();
-
-            while (buffer.hasRemaining()) {
-                int len = channel.write(buffer);
-                if (len < 0) {
-                    throw new EOFException();
-                }
-            }
-            channel.close();
-        } catch (Exception e) {
-            //e.printStackTrace();
-        }
+        send(fout, true);
     }
 
     @Override
@@ -176,7 +162,7 @@ public class SimpleHttpResponse implements HttpResponse {
         return wrapperBaseResponseHeader(statusCode);
     }
 
-    public byte[] wrapperBaseResponseHeader(int statusCode) {
+    private byte[] wrapperBaseResponseHeader(int statusCode) {
         header.put("server", serverName);
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         try {
@@ -263,11 +249,11 @@ public class SimpleHttpResponse implements HttpResponse {
             int block = 128;
             int blockCount = data.length / block;
             for (int i = 0; i < blockCount; i++) {
-                out.write(HexaConversionUtil.subByts(data, i * block, block));
+                out.write(HexConversionUtil.subBytes(data, i * block, block));
             }
             int last = data.length % block;
             if (last != 0) {
-                out.write(HexaConversionUtil.subByts(data, blockCount * block, last));
+                out.write(HexConversionUtil.subBytes(data, blockCount * block, last));
             }
             out.close();
             return bout.toByteArray();
@@ -324,11 +310,14 @@ public class SimpleHttpResponse implements HttpResponse {
             if (inputStream != null) {
                 byte[] bytes = new byte[1024];
                 int length;
+                while ((length = inputStream.read(bytes)) != -1) {
+                    ByteArrayOutputStream tmpOut = new ByteArrayOutputStream();
+                    ChunkedOutputStream chunkedOutputStream = new ChunkedOutputStream(tmpOut);
+                    chunkedOutputStream.write(HexConversionUtil.subBytes(bytes, 0, length));
+                    send(tmpOut, false);
+                }
                 ByteArrayOutputStream tmpOut = new ByteArrayOutputStream();
                 ChunkedOutputStream chunkedOutputStream = new ChunkedOutputStream(tmpOut);
-                while ((length = inputStream.read(bytes)) != -1) {
-                    chunkedOutputStream.write(HexaConversionUtil.subByts(bytes, 0, length));
-                }
                 chunkedOutputStream.close();
                 send(tmpOut);
             }
