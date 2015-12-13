@@ -1,8 +1,8 @@
 package com.fzb.http.server;
 
-import com.fzb.http.server.impl.HttpServer;
+import com.fzb.http.server.impl.HttpServlet;
 
-public class Controller extends HttpServer {
+public class Controller extends HttpServlet {
 
     protected HttpRequest request;
     protected HttpResponse response;

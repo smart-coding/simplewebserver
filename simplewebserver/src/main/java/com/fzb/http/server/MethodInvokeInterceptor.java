@@ -23,13 +23,14 @@ public class MethodInvokeInterceptor implements Interceptor {
             return false;
         }
         Method method;
+        Router router = request.getRequestConfig().getRouter();
         if (request.getUri().contains("-")) {
-            method = Router.getInstance().getMethod(request.getUri().substring(0, request.getUri().indexOf("-")));
+            method = router.getMethod(request.getUri().substring(0, request.getUri().indexOf("-")));
         } else {
-            method = Router.getInstance().getMethod(request.getUri());
+            method = router.getMethod(request.getUri());
             if (method == null) {
                 String index = request.getUri().substring(0, request.getUri().lastIndexOf("/") + 1) + "index";
-                method = Router.getInstance().getMethod(index);
+                method = router.getMethod(index);
             }
         }
         LOGGER.info("invoke method " + method);

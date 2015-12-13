@@ -1,21 +1,20 @@
 package com.fzb.http.server.codec.impl;
 
-import com.fzb.http.kit.HexConversionUtil;
-import com.fzb.http.kit.IOUtil;
-import com.fzb.http.kit.ConfigKit;
-import com.fzb.http.kit.LoggerUtil;
-import com.fzb.http.kit.PathKit;
+import com.fzb.http.kit.*;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.cookie.Cookie;
 import com.fzb.http.server.execption.ContentToBigException;
+import com.fzb.http.server.impl.RequestConfig;
 import com.fzb.http.server.impl.SimpleHttpRequest;
 import com.fzb.http.server.session.HttpSession;
 import com.fzb.http.server.session.SessionUtil;
 
 import java.io.*;
+import java.net.SocketAddress;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -24,108 +23,117 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
     private static final Logger LOGGER = LoggerUtil.getLogger(HttpDecoder.class);
 
-
-    private static final String split = "\r\n\r\n";
+    private static final String CRLF = "\r\n";
+    private static final String split = CRLF + CRLF;
     private long createTime;
-    private boolean disableCookie;
 
-    public HttpDecoder() {
-        this(false);
-    }
+    private StringBuilder headerSb = new StringBuilder();
 
-    public HttpDecoder(boolean disableCookie) {
+    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig) {
         createTime = System.currentTimeMillis();
-        this.disableCookie = disableCookie;
+        this.requestConfig = requestConfig;
+        this.ipAddr = socketAddress;
+        if (requestConfig.isSsl()) {
+            scheme = "https";
+        }
     }
 
     @Override
-    public boolean doDecode(SocketChannel channel) throws Exception {
-        this.ipAddr = channel.socket().getRemoteSocketAddress();
-        // parse HttpHeader
-        ByteBuffer buffer1 = ByteBuffer.allocate(1024 * 16);
-        int length = channel.read(buffer1);
-        if (length <= 0) {
-            channel.socket().close();
-            return true;
-        }
-        byte[] date = HexConversionUtil.subBytes(buffer1.array(), 0, length);
-        //InputStream in=channel.socket().getInputStream();
-        String fullStr = new String(date);
+    public boolean doDecode(byte[] data) throws Exception {
         boolean flag = false;
-        if (dataBuffer == null && new String(date).contains(split)) {
-            String tstr = new String(date).substring(0, new String(date).indexOf(split));
-            String httpStr[] = new String(tstr).split("\r\n");
-            String pHeader = httpStr[0];
-            if (!"".equals(pHeader.split(" ")[0])) {
-                try {
-                    method = HttpMethod.valueOf(pHeader.split(" ")[0]);
-                } catch (IllegalArgumentException e) {
-                    LOGGER.warning("unSupport method " + pHeader.split(" ")[0]);
-                    return false;
-                }
-                // 先得到请求头信息
-                for (int i = 1; i < httpStr.length; i++) {
-                    header.put(httpStr[i].split(":")[0], httpStr[i].substring(httpStr[i].indexOf(":") + 2));
-                }
-                String paramStr = null;
-                String turl = uri = pHeader.split(" ")[1];
-                if (turl.indexOf("?") != -1) {
-                    uri = turl.substring(0, turl.indexOf("?"));
-                    paramStr = turl.substring(turl.indexOf("?") + 1);
-                    queryStr = paramStr;
-                }
-                if (method == HttpMethod.GET) {
-                    wrapperParamStrToMap(paramStr);
-                    flag = true;
-                }
-                // 存在2种情况
-                // 1,POST 提交的数据一次性读取完成。
-                // 2,POST 提交的数据一次性读取不完。
-                else if (method == HttpMethod.POST) {
-                    wrapperParamStrToMap(paramStr);
-                    Integer dateLength = Integer.parseInt(header.get("Content-Length"));
-                    if (dateLength > ConfigKit.getMaxUploadSize()) {
-                        throw new ContentToBigException("Content-Length outSide the max uploadSize "
-                                + ConfigKit.getMaxUploadSize());
-                    }
-                    dataBuffer = ByteBuffer.allocate(dateLength);
-                    Integer remainLen = fullStr.indexOf(split) + split.getBytes().length;
-                    byte[] remain = HexConversionUtil.subBytes(date, remainLen, date.length - remainLen);
-                    dataBuffer.put(remain);
-                    flag = !dataBuffer.hasRemaining();
-                    if (flag) {
-                        dealPostData();
-                    }
-                }
-                if (!disableCookie) {
-                    // deal with cookie
-                    dealWithCookie();
+        if (dataBuffer == null) {
+            headerSb.append(new String(data));
+            if (headerSb.toString().contains(split)) {
+                String fullData = headerSb.toString();
+                String httpHeader = fullData.substring(0, fullData.indexOf(split));
+                String headerArr[] = httpHeader.split(CRLF);
+                String pHeader = headerArr[0];
+                if (!"".equals(pHeader.split(" ")[0])) {
+                    // parse HttpHeader
+                    parseHttpProtocolHeader(headerArr, pHeader);
+                    flag = parseHttpMethod(data, httpHeader);
                 }
             }
         } else {
-            if (dataBuffer != null) {
-                dataBuffer.put(date);
-                flag = !dataBuffer.hasRemaining();
-                if (flag) {
-                    dealPostData();
-                }
+            dataBuffer.put(data);
+            flag = !dataBuffer.hasRemaining();
+            if (flag) {
+                dealPostData();
             }
         }
         return flag;
     }
 
+    private boolean parseHttpMethod(byte[] data, String httpHeader) {
+        boolean flag = false;
+        if (method == HttpMethod.GET) {
+            wrapperParamStrToMap(queryStr);
+            flag = true;
+        }
+        // 存在2种情况
+        // 1,POST 提交的数据一次性读取完成。
+        // 2,POST 提交的数据一次性读取不完。
+        else if (method == HttpMethod.POST) {
+            wrapperParamStrToMap(queryStr);
+            Integer dateLength = Integer.parseInt(header.get("Content-Length"));
+            if (dateLength > ConfigKit.getMaxUploadSize()) {
+                throw new ContentToBigException("Content-Length outSide the max uploadSize "
+                        + ConfigKit.getMaxUploadSize());
+            }
+            dataBuffer = ByteBuffer.allocate(dateLength);
+            int headerLength = httpHeader.getBytes().length + split.getBytes().length;
+            byte[] remain = HexConversionUtil.subBytes(data, headerLength, data.length - headerLength);
+            dataBuffer.put(remain);
+            flag = !dataBuffer.hasRemaining();
+            if (flag) {
+                dealPostData();
+            }
+        }
+        if (!requestConfig.isDisableCookie()) {
+            // deal with cookie
+            dealWithCookie();
+        }
+        return flag;
+    }
+
+    private void parseHttpProtocolHeader(String[] headerArr, String pHeader) throws Exception {
+        try {
+            method = HttpMethod.valueOf(pHeader.split(" ")[0]);
+        } catch (IllegalArgumentException e) {
+            String msg = "unSupport method " + pHeader.split(" ")[0];
+            LOGGER.warning(msg);
+            throw new Exception(msg);
+        }
+        // 先得到请求头信息
+        for (int i = 1; i < headerArr.length; i++) {
+            header.put(headerArr[i].split(":")[0], headerArr[i].substring(headerArr[i].indexOf(":") + 2));
+        }
+        String tUrl = uri = pHeader.split(" ")[1];
+        // just for some proxy-client
+        if (tUrl.startsWith(scheme + "://")) {
+            tUrl = tUrl.substring((scheme + "://").length());
+            header.put("Host", tUrl.substring(0, tUrl.indexOf("/")));
+            tUrl = tUrl.substring(tUrl.indexOf("/"));
+        }
+        if (tUrl.contains("?")) {
+            uri = tUrl.substring(0, tUrl.indexOf("?"));
+            queryStr = tUrl.substring(tUrl.indexOf("?") + 1);
+        } else {
+            uri = tUrl;
+        }
+        uri = URLDecoder.decode(uri, "UTF-8");
+    }
+
     private void dealWithCookie() {
         boolean createCookie = true;
         if (header.get("Cookie") != null) {
-            cookies = Cookie.saxToCookie(header.get("Cookie").toString());
-            String jsessionid = Cookie.getJSessionId(header.get("Cookie").toString());
+            cookies = Cookie.saxToCookie(header.get("Cookie"));
+            String jsessionid = Cookie.getJSessionId(header.get("Cookie"));
             if (jsessionid == null) {
-                Cookie[] tcookies = new Cookie[cookies.length + 1];
+                Cookie[] tCookies = new Cookie[cookies.length + 1];
                 // copy cookie
-                for (int i = 0; i < cookies.length; i++) {
-                    tcookies[i] = cookies[i];
-                }
-                cookies = tcookies;
+                System.arraycopy(cookies, 0, tCookies, 0, cookies.length);
+                cookies = tCookies;
             } else {
                 session = SessionUtil.getSessionById(jsessionid);
                 if (session != null) {
@@ -153,7 +161,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
         paramMap = new HashMap<String, String[]>();
         if (paramStr != null) {
             Map<String, Set<String>> tempParam = new HashMap<>();
-            String args[] = new String(paramStr).split("&");
+            String args[] = paramStr.split("&");
             for (String string : args) {
                 int idx = string.indexOf("=");
                 if (idx != -1) {
@@ -175,20 +183,19 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
     }
 
     private void dealPostData() {
-        String paramStr;
-        if (header.get("Content-Type") != null && header.get("Content-Type").toString().split(";")[0] != null) {
-            if ("multipart/form-data".equals(header.get("Content-Type").toString().split(";")[0])) {
+        if (header.get("Content-Type") != null && header.get("Content-Type").split(";")[0] != null) {
+            if ("multipart/form-data".equals(header.get("Content-Type").split(";")[0])) {
                 //TODO 使用合理算法提高对网卡的利用率
                 //FIXME 不支持多文件上传，不支持这里有其他属性字段
                 if (!dataBuffer.hasRemaining()) {
                     BufferedReader bin = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(dataBuffer.array())));
                     //ByteArrayOutputStream bout=new ByteArrayOutputStream(d);
-                    String tstr = null;
-                    StringBuffer sb2 = new StringBuffer();
+                    StringBuilder sb2 = new StringBuilder();
                     try {
+                        String tstr;
                         while ((tstr = bin.readLine()) != null && !"".equals(tstr)) {
-                            sb2.append(tstr + "\r\n");
-                            if (tstr.indexOf(":") != -1) {
+                            sb2.append(tstr).append(CRLF);
+                            if (tstr.contains(":")) {
                                 header.put(tstr.split(":")[0], tstr.substring(tstr.indexOf(":") + 2));
                             }
                         }
@@ -202,12 +209,18 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                         }
                     }
 
+                    LOGGER.info(header.toString());
 
                     String inputName = header.get("Content-Disposition").split(";")[1].split("=")[1].replace("\"", "");
-                    String fileName = header.get("Content-Disposition").split(";")[2].split("=")[1].replace("\"", "");
-                    File file = new File(PathKit.getRootPath() + "/temp/" + fileName);
+                    String fileName;
+                    if (header.get("Content-Disposition").split(";").length > 2) {
+                        fileName = header.get("Content-Disposition").split(";")[2].split("=")[1].replace("\"", "");
+                    } else {
+                        fileName = randomFile();
+                    }
+                    File file = new File(PathKit.getTempPath() + fileName);
                     files.put(inputName, file);
-                    int length1 = sb2.toString().split("\r\n")[0].getBytes().length + "\r\n".getBytes().length;
+                    int length1 = sb2.toString().split(CRLF)[0].getBytes().length + CRLF.getBytes().length;
                     int length2 = sb2.toString().getBytes().length + 2;
                     int dataLength = Integer.parseInt(header.get("Content-Length")) - length1 - length2 - split.getBytes().length;
                     IOUtil.writeBytesToFile(HexConversionUtil.subBytes(dataBuffer.array(), length2, dataLength), file);
@@ -215,16 +228,19 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
                 }
             } else {
-                paramStr = new String(dataBuffer.array());
-                wrapperParamStrToMap(paramStr);
+                wrapperParamStrToMap(new String(dataBuffer.array()));
             }
         } else {
-            paramStr = new String(dataBuffer.array());
-            wrapperParamStrToMap(paramStr);
+            wrapperParamStrToMap(new String(dataBuffer.array()));
         }
     }
 
     public long getCreateTime() {
         return createTime;
+    }
+
+    private static String randomFile() {
+        SimpleDateFormat df = new SimpleDateFormat("yyyyMMddHHmmss");
+        return df.format(new Date()) + "_" + new Random().nextInt(1000);
     }
 }

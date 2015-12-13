@@ -32,4 +32,10 @@ public class PathKit {
     public static String getStaticPath() {
         return getRootPath() + "/static/";
     }
+
+    public static String getTempPath() {
+        String str = getRootPath() + "/temp/";
+        new File(str).mkdirs();
+        return str;
+    }
 }

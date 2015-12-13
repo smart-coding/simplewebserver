@@ -4,7 +4,7 @@ import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpRequestMethod;
 import com.fzb.http.server.HttpResponse;
 
-public class HttpServer implements HttpRequestMethod {
+public class HttpServlet implements HttpRequestMethod {
 
     @Override
     public void doGet(HttpRequest request, HttpResponse response) {

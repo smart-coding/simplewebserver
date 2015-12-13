@@ -1,7 +1,9 @@
-﻿#基于NIO的简单web服务器
+﻿#基于NIO的web服务器
 ------------
 
-> 简易，灵活，更少的依赖，更多的扩展。更少的内存占用
+> 简易，灵活，更少的依赖，更多的扩展。更少的内存占用，能快速搭建Web项目。可快速运行嵌入式, Android 设备上
+
+------------
 
 ##基本功能
 
@@ -10,22 +12,34 @@
 - 3.路由配置请求
 - 4.freemarker 模板
 - 5.多线程支持
+- 6.支持 https
 
 ##项目结构
 
  server(simplewebserver 核心代码)
  
+
  demo(web项目)
  
-   * bin 方便打包，程序启动
-   * conf 配置文件
-   * logs 存放日志文件
-   * src 代码文件
-   * static 放置静态页面
-   * templates freemarker模板文件
-   * temp 文件上传缓存目录
+ ├── bin 方便打包，程序启动
+ ├── conf 配置文件
+ ├── logs 存放日志文件
+ ├── pom.xml maven 配置文件
+ ├── src 代码文件
+ ├── static 放置静态页面
+ ├── temp 文件上传缓存目录
+ └── templates 模板文件
    
 ##Changelog
+
+V1.3(2015-12-13)
+
+* 引入对 Https 的支持
+* 变更创建 WebServer的方式
+* 支持 Gzip 流的压缩
+* 支持单进程启动多个 Server (Router,Interceptor 非 static)
+* 增加对部分代理软件请求的支持
+* 修复部分请求上传文件导致的异常
 
 V1.2(2015-08-16)
 
@@ -34,29 +48,53 @@ V1.2(2015-08-16)
 * 处理Session多线程线程安全
 
 
-##一行代码代码就启动了web程序
+## 启动了webServer示例
+
 
 ```java
-package com.fzb.test;
- 
-import com.fzb.http.server.InterceptorHelper;
-import com.fzb.http.server.Router;
-import com.fzb.http.server.impl.RouterServer;
- 
-public class ServerRun extends RouterServer{
+package com.fzb.demo.file;
+
+import com.fzb.http.kit.FreeMarkerKit;
+import com.fzb.http.kit.PathKit;
+import com.fzb.http.server.MethodInvokeInterceptor;
+import com.fzb.http.server.SimpleServerConfig;
+import com.fzb.http.server.WebServerBuilder;
+import com.fzb.http.server.impl.RequestConfig;
+import com.fzb.http.server.impl.ResponseConfig;
+import com.fzb.http.server.impl.ServerConfig;
+
+public class ServerRun extends SimpleServerConfig {
+
     @Override
-    public void configServer() {
-        //config router
-        Router.getInstance().addMapper("/user", MySimpleController.class);
-         
-        //config Intercepor
-        InterceptorHelper.getInstance().addIntercepor(MyIntercepor.class);
+    public ServerConfig getServerConfig() {
+        ServerConfig serverConfig = new ServerConfig();
+        serverConfig.getRouter().addMapper("/_file", MySimpleController.class);
+        serverConfig.addInterceptor(MethodInvokeInterceptor.class);
+        try {
+            FreeMarkerKit.init(PathKit.getRootPath() + "/templates");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return serverConfig;
     }
-     
+
+    @Override
+    public RequestConfig getRequestConfig() {
+        return null;
+    }
+
+    @Override
+    public ResponseConfig getResponseConfig() {
+        ResponseConfig responseConfig = new ResponseConfig();
+        responseConfig.setIsGzip(true);
+        return responseConfig;
+    }
+
     public static void main(String[] args) {
-        // 启动 server
-        new Thread(new ServerRun()).start();
+        ServerRun serverConfig = new ServerRun();
+        new WebServerBuilder.Builder().config(serverConfig).build().startWithThread();
     }
+
 }
 ```
 
@@ -65,7 +103,6 @@ public class ServerRun extends RouterServer{
 ##demo
 
 当你下载某个文件由于线路问题可能会很慢，那么你使用 [http://down.94fzb.com](http://down.94fzb.com) 下载，可以节省一些时间。
-
 
 ##其他
 

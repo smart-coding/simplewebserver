@@ -1,39 +1,47 @@
 package com.fzb.http.server.impl;
 
-import com.fzb.http.kit.HexConversionUtil;
-import com.fzb.http.kit.IOUtil;
 import com.fzb.http.kit.*;
 import com.fzb.http.mimetype.MimeTypeUtil;
 import com.fzb.http.server.ChunkedOutputStream;
 import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.execption.InternalException;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import flexjson.JSONSerializer;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class SimpleHttpResponse implements HttpResponse {
 
-
-    private static String serverName = "SIMPLEWEBSERVER/" + StringsUtil.VERSIONSTR;
     private static Logger LOGGER = LoggerUtil.getLogger(SimpleHttpResponse.class);
-    private SocketChannel channel;
+
     private Map<String, String> header = new HashMap<String, String>();
     private HttpRequest request;
     private List<Cookie> cookieList = new ArrayList<Cookie>();
+    private ReadWriteSelectorHandler handler;
+    private static final String CRLF = "\r\n";
+    private ResponseConfig responseConfig;
 
-
-    public SimpleHttpResponse(SocketChannel channel, HttpRequest request) {
-        this.channel = channel;
+    public SimpleHttpResponse(ReadWriteSelectorHandler handler, HttpRequest request, ResponseConfig responseConfig) {
+        header.put("Server", "SIMPLEWEBSERVER/" + StringsUtil.VERSIONSTR);
+        this.handler = handler;
         this.request = request;
+        this.responseConfig = responseConfig;
+        if (responseConfig.isGzip()) {
+            header.put("Content-Encoding", "gzip");
+        }
+
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
@@ -45,29 +53,21 @@ public class SimpleHttpResponse implements HttpResponse {
     }
 
     @Override
-    public OutputStream getWriter() {
-        return null;
-    }
-
-    @Override
-    public void setHeader(String key, String value) {
-        header.put(key, value);
-    }
-
-    @Override
     public void writeFile(File file) {
         if (file.exists()) {
             try {
-                // getMimeType
-                ByteArrayOutputStream fout = new ByteArrayOutputStream();
                 if (file.isDirectory()) {
                     renderByStatusCode(302);
                     return;
                 }
+
                 String ext = file.getName().substring(file.getName().lastIndexOf(".") + 1);
+                // getMimeType
                 if (header.get("Content-Type") == null) {
                     header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext));
                 }
+
+                ByteArrayOutputStream fout = new ByteArrayOutputStream();
                 if (file.length() < 1024 * 1024) {
                     fout.write(wrapperData(200, IOUtil.getByteByInputStream(new FileInputStream(file))));
                     send(fout);
@@ -84,7 +84,7 @@ public class SimpleHttpResponse implements HttpResponse {
                         send(bout, false);
                     }
                     fileInputStream.close();
-                    channel.close();
+                    handler.close();
                 }
 
             } catch (IOException e) {
@@ -95,31 +95,24 @@ public class SimpleHttpResponse implements HttpResponse {
         }
     }
 
-    private void send(ByteArrayOutputStream fout, boolean close) {
-        ByteBuffer buffer = ByteBuffer.allocate(fout.toByteArray().length);
+    private void send(ByteArrayOutputStream outputStream, boolean close) {
         try {
-            buffer.put(fout.toByteArray());
-            buffer.flip();
-
-            while (buffer.hasRemaining()) {
-                int len = channel.write(buffer);
-                if (len < 0) {
-                    throw new EOFException();
-                }
-            }
+            byte[] b = outputStream.toByteArray();
+            ByteBuffer byteBuffer = ByteBuffer.allocate(b.length);
+            byteBuffer.put(b);
+            handler.handleWrite(byteBuffer);
+            outputStream.write(b);
             if (close) {
-                channel.close();
+                handler.close();
             }
         } catch (Exception e) {
-            //e.printStackTrace();
-
+            LOGGER.log(Level.SEVERE, "send error", e);
+            throw new InternalException("send error", e);
         } finally {
-            if (fout != null) {
-                try {
-                    fout.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            try {
+                outputStream.close();
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "outputStream close exception ", e);
             }
         }
     }
@@ -132,14 +125,8 @@ public class SimpleHttpResponse implements HttpResponse {
     @Override
     public void renderJson(Object json) {
         try {
-            String body = new JSONSerializer().deepSerialize(json);
-            ByteArrayOutputStream fout = new ByteArrayOutputStream();
-            header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("json") + ";charset=UTF-8");
-            fout.write(wrapperData(200, body.getBytes("UTF-8")));
-            send(fout);
-        } catch (FileNotFoundException e) {
-            renderByStatusCode(404);
-        } catch (IOException e) {
+            renderByMimeType("json", new JSONSerializer().deepSerialize(json).getBytes(responseConfig.getCharSet()));
+        } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
     }
@@ -152,7 +139,7 @@ public class SimpleHttpResponse implements HttpResponse {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         bout.write(wrapperResponseHeader(statusCode, data.length));
         if (data.length > 0) {
-            bout.write(data);
+            bout.write(convertGzipBytes(data));
         }
         return bout.toByteArray();
     }
@@ -163,23 +150,20 @@ public class SimpleHttpResponse implements HttpResponse {
     }
 
     private byte[] wrapperBaseResponseHeader(int statusCode) {
-        header.put("server", serverName);
-        ByteArrayOutputStream bout = new ByteArrayOutputStream();
-        try {
-            bout.write(("HTTP/1.1 " + statusCode + " " + StatusCodeKit.getStatusCode(statusCode) + "\r\n").getBytes());
-            for (Entry<String, String> he : header.entrySet()) {
-                bout.write((he.getKey() + ": " + he.getValue() + "\r\n").getBytes());
-            }
-            //deal cookie
-            for (Cookie cookie : cookieList) {
-                bout.write(("Set-Cookie: " + cookie + "\r\n").getBytes());
-            }
-            bout.write("\r\n".getBytes());
-            return bout.toByteArray();
-        } catch (IOException e) {
-            e.printStackTrace();
+        StringBuilder sb = new StringBuilder();
+        sb.append("HTTP/1.1 ").append(statusCode).append(" ").append(StatusCodeKit.getStatusCode(statusCode)).append(CRLF);
+        for (Entry<String, String> he : header.entrySet()) {
+            sb.append(he.getKey()).append(": ").append(he.getValue()).append(CRLF);
         }
-        return new byte[]{};
+        //deal cookie
+        if (responseConfig.isDisableCookie()) {
+
+        }
+        for (Cookie cookie : cookieList) {
+            sb.append("Set-Cookie: ").append(cookie).append(CRLF);
+        }
+        sb.append(CRLF);
+        return sb.toString().getBytes();
     }
 
     private byte[] wrapperResponseHeader(Integer statusCode) {
@@ -187,6 +171,22 @@ public class SimpleHttpResponse implements HttpResponse {
         return wrapperBaseResponseHeader(statusCode);
     }
 
+    private byte[] convertGzipBytes(byte[] bytes) {
+        if (responseConfig.isGzip()) {
+            try {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream(bytes.length);
+                GZIPOutputStream gzip = new GZIPOutputStream(bos);
+                gzip.write(bytes);
+                gzip.close();
+                byte[] compressed = bos.toByteArray();
+                bos.close();
+                return compressed;
+            } catch (IOException e) {
+                throw new InternalException("convertGzipBytes error ", e);
+            }
+        }
+        return bytes;
+    }
 
     private void renderByStatusCode(Integer errorCode) {
         if (errorCode > 399) {
@@ -230,16 +230,21 @@ public class SimpleHttpResponse implements HttpResponse {
     @Override
     public void renderHtmlStr(String htmlContent) {
         try {
-            ByteArrayOutputStream fout = new ByteArrayOutputStream();
-            header.put("Content-Type", MimeTypeUtil.getMimeStrByExt("html") + ";charset=UTF-8");
-            fout.write(wrapperData(200, htmlContent.getBytes("UTF-8")));
+            renderByMimeType("html", htmlContent.getBytes(responseConfig.getCharSet()));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void renderByMimeType(String ext, byte[] body) {
+        ByteArrayOutputStream fout = new ByteArrayOutputStream();
+        header.put("Content-Type", MimeTypeUtil.getMimeStrByExt(ext) + ";charset=" + responseConfig.getCharSet());
+        try {
+            fout.write(wrapperData(200, body));
             send(fout);
-        } catch (FileNotFoundException e) {
-            renderByStatusCode(404);
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     private byte[] warpperToChunkedByte(byte[] data) {
@@ -308,8 +313,11 @@ public class SimpleHttpResponse implements HttpResponse {
             byteArrayOutputStream.write(wrapperResponseHeader(code));
             send(byteArrayOutputStream, false);
             if (inputStream != null) {
-                byte[] bytes = new byte[1024];
+                byte[] bytes = new byte[4096];
                 int length;
+                if(responseConfig.isGzip()){
+                    inputStream = new GzipCompressingInputStream(inputStream);
+                }
                 while ((length = inputStream.read(bytes)) != -1) {
                     ByteArrayOutputStream tmpOut = new ByteArrayOutputStream();
                     ChunkedOutputStream chunkedOutputStream = new ChunkedOutputStream(tmpOut);
@@ -332,5 +340,9 @@ public class SimpleHttpResponse implements HttpResponse {
                 }
             }
         }
+    }
+
+    public Map<String, String> getHeader() {
+        return header;
     }
 }

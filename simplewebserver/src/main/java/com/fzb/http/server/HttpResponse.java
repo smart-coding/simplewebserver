@@ -14,10 +14,6 @@ public interface HttpResponse {
 
     void renderJson(Object json);
 
-    OutputStream getWriter();
-
-    void setHeader(String key, String value);
-
     void renderCode(int errorCode);
 
     void addCookie(Cookie cookie);

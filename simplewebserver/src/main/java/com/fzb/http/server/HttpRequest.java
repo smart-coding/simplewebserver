@@ -1,6 +1,7 @@
 package com.fzb.http.server;
 
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.impl.RequestConfig;
 import com.fzb.http.server.session.HttpSession;
 
 import java.io.File;
@@ -42,7 +43,9 @@ public interface HttpRequest {
 
     String getScheme();
 
-    Map<String,String> getHeaderMap();
+    Map<String, String> getHeaderMap();
 
     byte[] getContentByte();
+
+    RequestConfig getRequestConfig();
 }

@@ -30,6 +30,7 @@ public class SimpleHttpRequest implements HttpRequest {
     protected ByteBuffer dataBuffer;
     protected String scheme = "http";
     private Map<String, Object> attr = new ConcurrentHashMap<>();
+    protected RequestConfig requestConfig;
 
     public SimpleHttpRequest() {
     }
@@ -143,5 +144,10 @@ public class SimpleHttpRequest implements HttpRequest {
     @Override
     public byte[] getContentByte() {
         return dataBuffer.array();
+    }
+
+    @Override
+    public RequestConfig getRequestConfig() {
+        return requestConfig;
     }
 }

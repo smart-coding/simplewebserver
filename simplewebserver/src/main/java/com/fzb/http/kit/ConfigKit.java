@@ -34,7 +34,15 @@ public class ConfigKit {
         return 6058;
     }
 
-    public static Object get(String key,Object defaultValue) {
+    public static Integer getHttpsServerPort() {
+        Object port = prop.get("server.ssl.port");
+        if (port != null) {
+            return Integer.parseInt(port.toString());
+        }
+        return 6443;
+    }
+
+    public static Object get(String key, Object defaultValue) {
         Object obj = prop.get(key);
         if (obj != null) {
             return obj;
