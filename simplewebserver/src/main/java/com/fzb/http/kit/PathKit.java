@@ -20,7 +20,11 @@ public class PathKit {
 
         } else {
             String thisPath = PathKit.class.getProtectionDomain().getCodeSource().getLocation().getPath().replace("\\", "/");
-            path = thisPath.substring(0, thisPath.lastIndexOf('/'));
+            if ("/".equals(File.separator)) {
+                path = thisPath.substring(0, thisPath.lastIndexOf('/'));
+            } else {
+                path = thisPath.substring(1, thisPath.lastIndexOf('/'));
+            }
         }
         return path;
     }

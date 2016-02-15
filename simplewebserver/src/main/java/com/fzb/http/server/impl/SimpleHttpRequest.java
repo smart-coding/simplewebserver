@@ -143,7 +143,11 @@ public class SimpleHttpRequest implements HttpRequest {
 
     @Override
     public byte[] getContentByte() {
-        return dataBuffer.array();
+        if (dataBuffer != null) {
+            return dataBuffer.array();
+        } else {
+            return new byte[]{};
+        }
     }
 
     @Override
