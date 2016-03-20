@@ -292,7 +292,9 @@ public class SimpleHttpResponse implements HttpResponse {
 
     @Override
     public void renderFile(File file) {
-        header.put("Content-Disposition", "attachment;filename=" + file.getName());
+        if (file.exists()) {
+            header.put("Content-Disposition", "attachment;filename=" + file.getName());
+        }
         writeFile(file);
     }
 
@@ -315,7 +317,7 @@ public class SimpleHttpResponse implements HttpResponse {
             if (inputStream != null) {
                 byte[] bytes = new byte[4096];
                 int length;
-                if(responseConfig.isGzip()){
+                if (responseConfig.isGzip()) {
                     inputStream = new GzipCompressingInputStream(inputStream);
                 }
                 while ((length = inputStream.read(bytes)) != -1) {

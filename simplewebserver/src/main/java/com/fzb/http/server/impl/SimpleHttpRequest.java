@@ -1,5 +1,6 @@
 package com.fzb.http.server.impl;
 
+import com.fzb.http.kit.LoggerUtil;
 import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.HttpRequest;
@@ -15,8 +16,12 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SimpleHttpRequest implements HttpRequest {
+
+    private static final Logger LOGGER = LoggerUtil.getLogger(SimpleHttpRequest.class);
 
     protected SocketAddress ipAddr;
     protected Map<String, String> header = new HashMap<String, String>();
@@ -153,5 +158,21 @@ public class SimpleHttpRequest implements HttpRequest {
     @Override
     public RequestConfig getRequestConfig() {
         return requestConfig;
+    }
+
+    public Map<String, String[]> decodeParamMap() {
+        Map<String, String[]> encodeMap = new HashMap<>();
+        for (Map.Entry<String, String[]> entry : getParamMap().entrySet()) {
+            String[] strings = new String[entry.getValue().length];
+            for (int i = 0; i < entry.getValue().length; i++) {
+                try {
+                    strings[i] = URLDecoder.decode(entry.getValue()[i], "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    LOGGER.log(Level.SEVERE, "decode error", e);
+                }
+            }
+            encodeMap.put(entry.getKey(), strings);
+        }
+        return encodeMap;
     }
 }

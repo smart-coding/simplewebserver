@@ -108,10 +108,9 @@ public class SimpleServer implements ISocketServer {
                                 if (!request.doDecode(bytes)) {
                                     continue;
                                 }
-
                                 serverConfig.getExecutor().execute(new HttpRequestHandler(key, serverConfig, getDefaultResponseConfig()));
                             } catch (Exception e) {
-                                if(!(e instanceof EOFException)){
+                                if (!(e instanceof EOFException)) {
                                     e.printStackTrace();
                                 }
                                 if (handler != null && request != null) {
@@ -151,7 +150,7 @@ public class SimpleServer implements ISocketServer {
 
     public void create(int port) throws IOException {
         ServerSocketChannel serverChannel = ServerSocketChannel.open();
-        serverChannel.socket().bind(new InetSocketAddress(port));
+        serverChannel.socket().bind(new InetSocketAddress(serverConfig.getHost(), port));
         serverChannel.configureBlocking(false);
         selector = Selector.open();
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);

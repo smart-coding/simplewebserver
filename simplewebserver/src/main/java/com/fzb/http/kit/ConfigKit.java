@@ -1,8 +1,6 @@
 package com.fzb.http.kit;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.util.Properties;
 
 public class ConfigKit {
@@ -12,7 +10,10 @@ public class ConfigKit {
     static {
         prop = new Properties();
         try {
-            prop.load(new FileInputStream(PathKit.getConfFile("/conf.properties")));
+            File file = new File(PathKit.getConfFile("/conf.properties"));
+            if (file.exists()) {
+                prop.load(new FileInputStream(file));
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }

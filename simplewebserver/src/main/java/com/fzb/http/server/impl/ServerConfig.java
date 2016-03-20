@@ -17,6 +17,8 @@ public class ServerConfig {
 
     private boolean isSsl;
 
+    private String host = "0.0.0.0";
+
     private int port;
 
     private boolean disableCookie;
@@ -67,6 +69,14 @@ public class ServerConfig {
 
     public void setTimeOut(int timeOut) {
         this.timeOut = timeOut;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
     }
 
     public Router getRouter() {

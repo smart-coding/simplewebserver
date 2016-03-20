@@ -11,6 +11,8 @@ public interface HttpRequest {
 
     Map<String, String[]> getParamMap();
 
+    Map<String, String[]> decodeParamMap();
+
     String getHeader(String key);
 
     String getRemoteHost();
