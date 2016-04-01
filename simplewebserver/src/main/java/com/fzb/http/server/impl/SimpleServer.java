@@ -94,8 +94,8 @@ public class SimpleServer implements ISocketServer {
 
                             try {
                                 if (key.attachment() == null) {
-                                    request = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig());
                                     handler = getReadWriteSelectorHandlerInstance(channel, key);
+                                    request = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), handler);
                                     key.attach(new Object[]{handler, request});
                                 } else {
                                     Object[] objects = (Object[]) key.attachment();
@@ -105,6 +105,7 @@ public class SimpleServer implements ISocketServer {
                                 ByteBuffer byteBuffer = handler.handleRead();
                                 byte[] bytes = HexConversionUtil.subBytes(byteBuffer.array(), 0, byteBuffer.array().length - byteBuffer.remaining());
                                 // 数据完整时, 跳过当前循环等待下一个请求
+                                System.out.println(new String(bytes));
                                 if (!request.doDecode(bytes)) {
                                     continue;
                                 }

@@ -1,6 +1,7 @@
 package com.fzb.http.server;
 
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.impl.RequestConfig;
 import com.fzb.http.server.session.HttpSession;
 
@@ -50,4 +51,6 @@ public interface HttpRequest {
     byte[] getContentByte();
 
     RequestConfig getRequestConfig();
+
+    ReadWriteSelectorHandler getHandler();
 }

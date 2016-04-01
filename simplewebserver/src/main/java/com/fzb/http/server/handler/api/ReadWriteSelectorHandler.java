@@ -9,4 +9,8 @@ public interface ReadWriteSelectorHandler {
     ByteBuffer handleRead() throws IOException;
 
     void close();
+
+    ByteBuffer getByteBuffer();
+
+    int currentReadSize();
 }

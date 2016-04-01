@@ -5,6 +5,7 @@ import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.cookie.Cookie;
 import com.fzb.http.server.execption.ContentToBigException;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.impl.RequestConfig;
 import com.fzb.http.server.impl.SimpleHttpRequest;
 import com.fzb.http.server.session.HttpSession;
@@ -29,10 +30,11 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
     private StringBuilder headerSb = new StringBuilder();
 
-    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig) {
+    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig, ReadWriteSelectorHandler handler) {
         createTime = System.currentTimeMillis();
         this.requestConfig = requestConfig;
         this.ipAddr = socketAddress;
+        this.handler = handler;
         if (requestConfig.isSsl()) {
             scheme = "https";
         }
@@ -66,7 +68,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
     private boolean parseHttpMethod(byte[] data, String httpHeader) {
         boolean flag = false;
-        if (method == HttpMethod.GET) {
+        if (method == HttpMethod.GET || method == HttpMethod.CONNECT) {
             wrapperParamStrToMap(queryStr);
             flag = true;
         }

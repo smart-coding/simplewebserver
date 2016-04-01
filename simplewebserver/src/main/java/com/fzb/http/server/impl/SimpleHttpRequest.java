@@ -5,6 +5,7 @@ import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.session.HttpSession;
 
 import java.io.File;
@@ -36,6 +37,7 @@ public class SimpleHttpRequest implements HttpRequest {
     protected String scheme = "http";
     private Map<String, Object> attr = new ConcurrentHashMap<>();
     protected RequestConfig requestConfig;
+    protected ReadWriteSelectorHandler handler;
 
     public SimpleHttpRequest() {
     }
@@ -174,5 +176,10 @@ public class SimpleHttpRequest implements HttpRequest {
             encodeMap.put(entry.getKey(), strings);
         }
         return encodeMap;
+    }
+
+    @Override
+    public ReadWriteSelectorHandler getHandler() {
+        return handler;
     }
 }

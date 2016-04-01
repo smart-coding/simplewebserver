@@ -95,7 +95,7 @@ public class SimpleHttpResponse implements HttpResponse {
         }
     }
 
-    private void send(ByteArrayOutputStream outputStream, boolean close) {
+    public void send(ByteArrayOutputStream outputStream, boolean close) {
         try {
             byte[] b = outputStream.toByteArray();
             ByteBuffer byteBuffer = ByteBuffer.allocate(b.length);
@@ -343,6 +343,7 @@ public class SimpleHttpResponse implements HttpResponse {
             }
         }
     }
+
 
     public Map<String, String> getHeader() {
         return header;
