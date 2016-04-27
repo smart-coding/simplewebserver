@@ -348,6 +348,7 @@ public class SimpleHttpResponse implements HttpResponse {
         }
     }
 
+
     public Map<String, String> getHeader() {
         return header;
     }
