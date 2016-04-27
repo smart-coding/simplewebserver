@@ -1,5 +1,6 @@
 package com.fzb.http.server.handler.impl;
 
+import com.fzb.http.kit.HexConversionUtil;
 import com.fzb.http.kit.LoggerUtil;
 import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 
@@ -17,10 +18,13 @@ public class PlainReadWriteSelectorHandler implements ReadWriteSelectorHandler {
 
     static private int requestBBSize = 4096;
     protected ByteBuffer requestBB;
+    private int currentReadSize;
 
     protected SocketChannel sc;
 
     protected SelectionKey selectionKey;
+
+    private ByteBuffer all = ByteBuffer.allocate(0);
 
     @Override
     public void handleWrite(ByteBuffer byteBuffer) throws IOException {
@@ -39,6 +43,15 @@ public class PlainReadWriteSelectorHandler implements ReadWriteSelectorHandler {
         int length = sc.read(byteBuffer);
         resizeRequestBB(length);
         if (length != -1) {
+            int t = 0;
+            if (all != null) {
+                t = all.array().length;
+            }
+            ByteBuffer buffer = ByteBuffer.allocate(length + t);
+            buffer.put(all.array());
+            buffer.put(HexConversionUtil.subBytes(byteBuffer.array(), 0, length));
+            all = buffer;
+            currentReadSize += length;
             return byteBuffer;
         }
         close();
@@ -80,5 +93,15 @@ public class PlainReadWriteSelectorHandler implements ReadWriteSelectorHandler {
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "close SocketChannel", e);
         }
+    }
+
+    @Override
+    public ByteBuffer getByteBuffer() {
+        return all;
+    }
+
+    @Override
+    public int currentReadSize() {
+        return currentReadSize;
     }
 }

@@ -21,6 +21,7 @@
 
  demo(web项目)
  
+```
  ├── bin 方便打包，程序启动
  ├── conf 配置文件
  ├── logs 存放日志文件
@@ -29,7 +30,8 @@
  ├── static 放置静态页面
  ├── temp 文件上传缓存目录
  └── templates 模板文件
-   
+```
+
 ##Changelog
 
 V1.3(2015-12-13)
@@ -102,7 +104,7 @@ public class ServerRun extends SimpleServerConfig {
 
 ##demo
 
-当你下载某个文件由于线路问题可能会很慢，那么你使用 [http://down.94fzb.com](http://down.94fzb.com) 下载，可以节省一些时间。
+当你下载某个文件由于线路问题可能会很慢，那么你使用 [http://tool.94fzb.com](http://tool.94fzb.com) 下载，可以节省一些时间。
 
 ##其他
 

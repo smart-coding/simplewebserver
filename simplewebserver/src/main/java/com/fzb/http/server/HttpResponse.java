@@ -2,13 +2,15 @@ package com.fzb.http.server;
 
 import com.fzb.http.server.cookie.Cookie;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 public interface HttpResponse {
 
     void writeFile(File file);
+
+    void renderText(String text);
 
     void renderHtml(String urlPath);
 
@@ -34,4 +36,5 @@ public interface HttpResponse {
 
     void write(InputStream inputStream, int code);
 
+    void send(ByteArrayOutputStream outputStream, boolean close);
 }

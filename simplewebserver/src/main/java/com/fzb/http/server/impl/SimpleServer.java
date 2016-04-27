@@ -1,9 +1,10 @@
 package com.fzb.http.server.impl;
 
 import com.fzb.http.kit.*;
+import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
-import com.fzb.http.server.codec.impl.HttpDecoder;
+import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.execption.ContentToBigException;
 import com.fzb.http.server.execption.InternalException;
 import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
@@ -30,6 +31,7 @@ public class SimpleServer implements ISocketServer {
     private ServerConfig serverConfig;
     private RequestConfig requestConfig;
     private ResponseConfig responseConfig;
+    private ServerContext serverContext = new ServerContext();
 
     public SimpleServer() {
         this(null, null, null);
@@ -89,32 +91,33 @@ public class SimpleServer implements ISocketServer {
                     } else if (key.isReadable()) {
                         channel = (SocketChannel) key.channel();
                         if (channel != null && channel.isOpen()) {
+                            IHttpDeCoder codec = serverContext.getHttpDeCoderMap().get(channel);
                             ReadWriteSelectorHandler handler = null;
-                            HttpDecoder request = null;
-
                             try {
-                                if (key.attachment() == null) {
-                                    request = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig());
+                                if (codec == null) {
                                     handler = getReadWriteSelectorHandlerInstance(channel, key);
-                                    key.attach(new Object[]{handler, request});
+                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), handler);
+                                    serverContext.getHttpDeCoderMap().put(channel, codec);
                                 } else {
-                                    Object[] objects = (Object[]) key.attachment();
-                                    handler = (ReadWriteSelectorHandler) objects[0];
-                                    request = (HttpDecoder) objects[1];
+                                    handler = codec.getRequest().getHandler();
                                 }
                                 ByteBuffer byteBuffer = handler.handleRead();
                                 byte[] bytes = HexConversionUtil.subBytes(byteBuffer.array(), 0, byteBuffer.array().length - byteBuffer.remaining());
                                 // 数据完整时, 跳过当前循环等待下一个请求
-                                if (!request.doDecode(bytes)) {
+                                if (!codec.doDecode(bytes)) {
                                     continue;
                                 }
-                                serverConfig.getExecutor().execute(new HttpRequestHandler(key, serverConfig, getDefaultResponseConfig()));
+                                serverConfig.getExecutor().execute(new HttpRequestHandler(codec, key, serverConfig, getDefaultResponseConfig(), serverContext));
+                                if (codec.getRequest().getMethod() != HttpMethod.CONNECT) {
+                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), handler);
+                                    serverContext.getHttpDeCoderMap().put(channel, codec);
+                                }
                             } catch (Exception e) {
                                 if (!(e instanceof EOFException)) {
                                     e.printStackTrace();
                                 }
-                                if (handler != null && request != null) {
-                                    HttpResponse response = new SimpleHttpResponse(handler, request, getDefaultResponseConfig());
+                                if (handler != null && codec != null) {
+                                    HttpResponse response = new SimpleHttpResponse(codec.getRequest(), getDefaultResponseConfig());
                                     if (e instanceof ContentToBigException) {
                                         response.renderCode(413);
                                     } else if (e instanceof InternalException) {

@@ -1,10 +1,12 @@
 package com.fzb.http.server;
 
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.impl.RequestConfig;
 import com.fzb.http.server.session.HttpSession;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.util.Map;
 
 public interface HttpRequest {
@@ -50,4 +52,10 @@ public interface HttpRequest {
     byte[] getContentByte();
 
     RequestConfig getRequestConfig();
+
+    ReadWriteSelectorHandler getHandler();
+
+    long getCreateTime();
+
+    ByteBuffer getInputByteBuffer();
 }

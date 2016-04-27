@@ -1,9 +1,9 @@
 package com.fzb.http.server.impl;
 
 import com.fzb.http.kit.LoggerUtil;
+import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.Interceptor;
-import com.fzb.http.server.codec.impl.HttpDecoder;
-import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
+import com.fzb.http.server.codec.IHttpDeCoder;
 
 import java.net.Socket;
 import java.nio.channels.SelectionKey;
@@ -17,26 +17,25 @@ public class HttpRequestHandler extends Thread {
     private static Logger LOGGER = LoggerUtil.getLogger(HttpRequestHandler.class);
 
     private SelectionKey key;
-    private HttpDecoder request;
+    private HttpRequest request;
     private ServerConfig serverConfig;
+    private ServerContext serverContext;
 
     private SimpleHttpResponse response;
     private Socket socket;
 
-    public HttpRequestHandler(SelectionKey key, ServerConfig serverConfig, ResponseConfig responseConfig) {
+    public HttpRequestHandler(IHttpDeCoder codec, SelectionKey key, ServerConfig serverConfig, ResponseConfig responseConfig, ServerContext serverContext) {
         this.key = key;
-
-        Object[] objects = (Object[]) key.attachment();
-        this.request = (HttpDecoder) objects[1];
+        this.serverContext = serverContext;
+        this.request = codec.getRequest();
         this.serverConfig = serverConfig;
 
-        this.response = new SimpleHttpResponse((ReadWriteSelectorHandler) objects[0], request, responseConfig);
+        this.response = new SimpleHttpResponse(codec.getRequest(), responseConfig);
         this.socket = ((SocketChannel) key.channel()).socket();
     }
 
     @Override
     public void run() {
-
         //timeout
         new Thread() {
             @Override
@@ -65,16 +64,21 @@ public class HttpRequestHandler extends Thread {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            LOGGER.log(Level.SEVERE, "dispose error " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "dispose error ", e);
         } finally {
-            // 渲染错误页面
-            if (!socket.isClosed()) {
-                LOGGER.log(Level.WARNING, "forget close stream " + socket.toString());
-                response.renderCode(404);
+            boolean keepAlive = request.getHeader("Connection") != null && "keep-alive".equalsIgnoreCase(request.getHeader("Connection"));
+            if (keepAlive) {
+                keepAlive = response.getHeader().get("Connection") != null && !"close".equalsIgnoreCase(response.getHeader().get("Connection"));
             }
-            key.channel();
+            if (!keepAlive) {
+                // 渲染错误页面
+                if (!socket.isClosed()) {
+                    LOGGER.log(Level.WARNING, "forget close stream " + socket.toString());
+                    response.renderCode(404);
+                }
+            }
             LOGGER.info(request.getUri() + " " + (System.currentTimeMillis() - request.getCreateTime()) + " ms");
+            serverContext.getHttpDeCoderMap().remove(key.channel());
         }
     }
 }

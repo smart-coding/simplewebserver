@@ -1,12 +1,11 @@
-package com.fzb.http.server.codec.impl;
+package com.fzb.http.server.impl;
 
 import com.fzb.http.kit.*;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.cookie.Cookie;
 import com.fzb.http.server.execption.ContentToBigException;
-import com.fzb.http.server.impl.RequestConfig;
-import com.fzb.http.server.impl.SimpleHttpRequest;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.session.HttpSession;
 import com.fzb.http.server.session.SessionUtil;
 
@@ -19,32 +18,31 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
 
-public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
+public class HttpDecoder implements IHttpDeCoder {
 
     private static final Logger LOGGER = LoggerUtil.getLogger(HttpDecoder.class);
 
-    private static final String CRLF = "\r\n";
-    private static final String split = CRLF + CRLF;
-    private long createTime;
+    protected static final String CRLF = "\r\n";
+    protected static final String split = CRLF + CRLF;
+    private SimpleHttpRequest request;
 
-    private StringBuilder headerSb = new StringBuilder();
 
-    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig) {
-        createTime = System.currentTimeMillis();
-        this.requestConfig = requestConfig;
-        this.ipAddr = socketAddress;
+    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig, ReadWriteSelectorHandler handler) {
+        this.request = new SimpleHttpRequest(System.currentTimeMillis(), handler);
+        this.request.requestConfig = requestConfig;
+        this.request.ipAddr = socketAddress;
         if (requestConfig.isSsl()) {
-            scheme = "https";
+            request.scheme = "https";
         }
     }
 
     @Override
     public boolean doDecode(byte[] data) throws Exception {
         boolean flag = false;
-        if (dataBuffer == null) {
-            headerSb.append(new String(data));
-            if (headerSb.toString().contains(split)) {
-                String fullData = headerSb.toString();
+        if (request.dataBuffer == null) {
+            request.headerSb.append(new String(data));
+            if (request.headerSb.toString().contains(split)) {
+                String fullData = request.headerSb.toString();
                 String httpHeader = fullData.substring(0, fullData.indexOf(split));
                 String headerArr[] = httpHeader.split(CRLF);
                 String pHeader = headerArr[0];
@@ -55,8 +53,8 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                 }
             }
         } else {
-            dataBuffer.put(data);
-            flag = !dataBuffer.hasRemaining();
+            request.dataBuffer.put(data);
+            flag = !request.dataBuffer.hasRemaining();
             if (flag) {
                 dealPostData();
             }
@@ -66,30 +64,31 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
     private boolean parseHttpMethod(byte[] data, String httpHeader) {
         boolean flag = false;
-        if (method == HttpMethod.GET) {
-            wrapperParamStrToMap(queryStr);
+
+        if (request.method == HttpMethod.GET || request.method == HttpMethod.CONNECT) {
+            wrapperParamStrToMap(request.queryStr);
             flag = true;
         }
         // 存在2种情况
         // 1,POST 提交的数据一次性读取完成。
         // 2,POST 提交的数据一次性读取不完。
-        else if (method == HttpMethod.POST) {
-            wrapperParamStrToMap(queryStr);
-            Integer dateLength = Integer.parseInt(header.get("Content-Length"));
+        else if (request.method == HttpMethod.POST) {
+            wrapperParamStrToMap(request.queryStr);
+            Integer dateLength = Integer.parseInt(request.header.get("Content-Length"));
             if (dateLength > ConfigKit.getMaxUploadSize()) {
                 throw new ContentToBigException("Content-Length outSide the max uploadSize "
                         + ConfigKit.getMaxUploadSize());
             }
-            dataBuffer = ByteBuffer.allocate(dateLength);
+            request.dataBuffer = ByteBuffer.allocate(dateLength);
             int headerLength = httpHeader.getBytes().length + split.getBytes().length;
             byte[] remain = HexConversionUtil.subBytes(data, headerLength, data.length - headerLength);
-            dataBuffer.put(remain);
-            flag = !dataBuffer.hasRemaining();
+            request.dataBuffer.put(remain);
+            flag = !request.dataBuffer.hasRemaining();
             if (flag) {
                 dealPostData();
             }
         }
-        if (!requestConfig.isDisableCookie()) {
+        if (!request.requestConfig.isDisableCookie()) {
             // deal with cookie
             dealWithCookie();
         }
@@ -98,7 +97,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
 
     private void parseHttpProtocolHeader(String[] headerArr, String pHeader) throws Exception {
         try {
-            method = HttpMethod.valueOf(pHeader.split(" ")[0]);
+            request.method = HttpMethod.valueOf(pHeader.split(" ")[0]);
         } catch (IllegalArgumentException e) {
             String msg = "unSupport method " + pHeader.split(" ")[0];
             LOGGER.warning(msg);
@@ -106,59 +105,59 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
         }
         // 先得到请求头信息
         for (int i = 1; i < headerArr.length; i++) {
-            header.put(headerArr[i].split(":")[0], headerArr[i].substring(headerArr[i].indexOf(":") + 2));
+            request.header.put(headerArr[i].split(":")[0], headerArr[i].substring(headerArr[i].indexOf(":") + 2));
         }
-        String tUrl = uri = pHeader.split(" ")[1];
+        String tUrl = request.uri = pHeader.split(" ")[1];
         // just for some proxy-client
-        if (tUrl.startsWith(scheme + "://")) {
-            tUrl = tUrl.substring((scheme + "://").length());
-            header.put("Host", tUrl.substring(0, tUrl.indexOf("/")));
+        if (tUrl.startsWith(request.scheme + "://")) {
+            tUrl = tUrl.substring((request.scheme + "://").length());
+            request.header.put("Host", tUrl.substring(0, tUrl.indexOf("/")));
             tUrl = tUrl.substring(tUrl.indexOf("/"));
         }
         if (tUrl.contains("?")) {
-            uri = tUrl.substring(0, tUrl.indexOf("?"));
-            queryStr = tUrl.substring(tUrl.indexOf("?") + 1);
+            request.uri = tUrl.substring(0, tUrl.indexOf("?"));
+            request.queryStr = tUrl.substring(tUrl.indexOf("?") + 1);
         } else {
-            uri = tUrl;
+            request.uri = tUrl;
         }
-        uri = URLDecoder.decode(uri, "UTF-8");
+        request.uri = URLDecoder.decode(request.uri, "UTF-8");
     }
 
     private void dealWithCookie() {
         boolean createCookie = true;
-        if (header.get("Cookie") != null) {
-            cookies = Cookie.saxToCookie(header.get("Cookie"));
-            String jsessionid = Cookie.getJSessionId(header.get("Cookie"));
+        if (request.header.get("Cookie") != null) {
+            request.cookies = Cookie.saxToCookie(request.header.get("Cookie"));
+            String jsessionid = Cookie.getJSessionId(request.header.get("Cookie"));
             if (jsessionid == null) {
-                Cookie[] tCookies = new Cookie[cookies.length + 1];
+                Cookie[] tCookies = new Cookie[request.cookies.length + 1];
                 // copy cookie
-                System.arraycopy(cookies, 0, tCookies, 0, cookies.length);
-                cookies = tCookies;
+                System.arraycopy(request.cookies, 0, tCookies, 0, request.cookies.length);
+                request.cookies = tCookies;
             } else {
-                session = SessionUtil.getSessionById(jsessionid);
-                if (session != null) {
+                request.session = SessionUtil.getSessionById(jsessionid);
+                if (request.session != null) {
                     createCookie = false;
                 }
             }
         }
         if (createCookie) {
-            if (cookies == null) {
-                cookies = new Cookie[1];
+            if (request.cookies == null) {
+                request.cookies = new Cookie[1];
             }
             Cookie cookie = new Cookie(true);
             String jsessionid = UUID.randomUUID().toString();
             cookie.setName(Cookie.JSESSIONID);
             cookie.setPath("/");
             cookie.setValue(jsessionid);
-            cookies[cookies.length - 1] = cookie;
-            session = new HttpSession(jsessionid);
-            SessionUtil.sessionMap.put(jsessionid, session);
+            request.cookies[request.cookies.length - 1] = cookie;
+            request.session = new HttpSession(jsessionid);
+            SessionUtil.sessionMap.put(jsessionid, request.session);
             LOGGER.info("create a Cookie " + cookie.toString());
         }
     }
 
     public void wrapperParamStrToMap(String paramStr) {
-        paramMap = new HashMap<String, String[]>();
+        request.paramMap = new HashMap<>();
         if (paramStr != null) {
             Map<String, Set<String>> tempParam = new HashMap<>();
             String args[] = paramStr.split("&");
@@ -177,18 +176,18 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                 }
             }
             for (Entry<String, Set<String>> ent : tempParam.entrySet()) {
-                paramMap.put(ent.getKey(), ent.getValue().toArray(new String[ent.getValue().size()]));
+                request.paramMap.put(ent.getKey(), ent.getValue().toArray(new String[ent.getValue().size()]));
             }
         }
     }
 
     private void dealPostData() {
-        if (header.get("Content-Type") != null && header.get("Content-Type").split(";")[0] != null) {
-            if ("multipart/form-data".equals(header.get("Content-Type").split(";")[0])) {
+        if (request.header.get("Content-Type") != null && request.header.get("Content-Type").split(";")[0] != null) {
+            if ("multipart/form-data".equals(request.header.get("Content-Type").split(";")[0])) {
                 //TODO 使用合理算法提高对网卡的利用率
                 //FIXME 不支持多文件上传，不支持这里有其他属性字段
-                if (!dataBuffer.hasRemaining()) {
-                    BufferedReader bin = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(dataBuffer.array())));
+                if (!request.dataBuffer.hasRemaining()) {
+                    BufferedReader bin = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(request.dataBuffer.array())));
                     //ByteArrayOutputStream bout=new ByteArrayOutputStream(d);
                     StringBuilder sb2 = new StringBuilder();
                     try {
@@ -196,7 +195,7 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                         while ((tstr = bin.readLine()) != null && !"".equals(tstr)) {
                             sb2.append(tstr).append(CRLF);
                             if (tstr.contains(":")) {
-                                header.put(tstr.split(":")[0], tstr.substring(tstr.indexOf(":") + 2));
+                                request.header.put(tstr.split(":")[0], tstr.substring(tstr.indexOf(":") + 2));
                             }
                         }
                     } catch (IOException e) {
@@ -209,38 +208,39 @@ public class HttpDecoder extends SimpleHttpRequest implements IHttpDeCoder {
                         }
                     }
 
-                    LOGGER.info(header.toString());
+                    LOGGER.info(request.header.toString());
 
-                    String inputName = header.get("Content-Disposition").split(";")[1].split("=")[1].replace("\"", "");
+                    String inputName = request.header.get("Content-Disposition").split(";")[1].split("=")[1].replace("\"", "");
                     String fileName;
-                    if (header.get("Content-Disposition").split(";").length > 2) {
-                        fileName = header.get("Content-Disposition").split(";")[2].split("=")[1].replace("\"", "");
+                    if (request.header.get("Content-Disposition").split(";").length > 2) {
+                        fileName = request.header.get("Content-Disposition").split(";")[2].split("=")[1].replace("\"", "");
                     } else {
                         fileName = randomFile();
                     }
                     File file = new File(PathKit.getTempPath() + fileName);
-                    files.put(inputName, file);
+                    request.files.put(inputName, file);
                     int length1 = sb2.toString().split(CRLF)[0].getBytes().length + CRLF.getBytes().length;
                     int length2 = sb2.toString().getBytes().length + 2;
-                    int dataLength = Integer.parseInt(header.get("Content-Length")) - length1 - length2 - split.getBytes().length;
-                    IOUtil.writeBytesToFile(HexConversionUtil.subBytes(dataBuffer.array(), length2, dataLength), file);
-                    paramMap = new HashMap<>();
+                    int dataLength = Integer.parseInt(request.header.get("Content-Length")) - length1 - length2 - split.getBytes().length;
+                    IOUtil.writeBytesToFile(HexConversionUtil.subBytes(request.dataBuffer.array(), length2, dataLength), file);
+                    request.paramMap = new HashMap<>();
 
                 }
             } else {
-                wrapperParamStrToMap(new String(dataBuffer.array()));
+                wrapperParamStrToMap(new String(request.dataBuffer.array()));
             }
         } else {
-            wrapperParamStrToMap(new String(dataBuffer.array()));
+            wrapperParamStrToMap(new String(request.dataBuffer.array()));
         }
-    }
-
-    public long getCreateTime() {
-        return createTime;
     }
 
     private static String randomFile() {
         SimpleDateFormat df = new SimpleDateFormat("yyyyMMddHHmmss");
         return df.format(new Date()) + "_" + new Random().nextInt(1000);
+    }
+
+    @Override
+    public SimpleHttpRequest getRequest() {
+        return request;
     }
 }

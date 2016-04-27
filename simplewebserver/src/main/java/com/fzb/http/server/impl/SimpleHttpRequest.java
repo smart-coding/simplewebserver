@@ -5,6 +5,7 @@ import com.fzb.http.kit.PathKit;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.HttpRequest;
 import com.fzb.http.server.cookie.Cookie;
+import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.session.HttpSession;
 
 import java.io.File;
@@ -36,8 +37,13 @@ public class SimpleHttpRequest implements HttpRequest {
     protected String scheme = "http";
     private Map<String, Object> attr = new ConcurrentHashMap<>();
     protected RequestConfig requestConfig;
+    private ReadWriteSelectorHandler handler;
+    private long createTime;
+    protected StringBuilder headerSb = new StringBuilder();
 
-    public SimpleHttpRequest() {
+    protected SimpleHttpRequest(long createTime, ReadWriteSelectorHandler handler) {
+        this.handler = handler;
+        this.createTime = createTime;
     }
 
     @Override
@@ -107,10 +113,7 @@ public class SimpleHttpRequest implements HttpRequest {
 
     @Override
     public boolean getParaToBool(String key) {
-        if (paramMap.get(key) != null) {
-            return "on".equals(paramMap.get(key)[0]);
-        }
-        return false;
+        return paramMap.get(key) != null && "on".equals(paramMap.get(key)[0]);
     }
 
     @Override
@@ -174,5 +177,28 @@ public class SimpleHttpRequest implements HttpRequest {
             encodeMap.put(entry.getKey(), strings);
         }
         return encodeMap;
+    }
+
+    @Override
+    public ReadWriteSelectorHandler getHandler() {
+        return handler;
+    }
+
+    public long getCreateTime() {
+        return createTime;
+    }
+
+    public ByteBuffer getInputByteBuffer() {
+        byte[] bytes = headerSb.toString().getBytes();
+        if (dataBuffer == null) {
+            ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
+            buffer.put(bytes);
+            return buffer;
+        } else {
+            ByteBuffer buffer = ByteBuffer.allocate(bytes.length + dataBuffer.array().length);
+            buffer.put(bytes);
+            buffer.put(dataBuffer.array());
+            return buffer;
+        }
     }
 }

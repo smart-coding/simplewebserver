@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 public class SimpleHttpResponse implements HttpResponse {
@@ -32,16 +31,21 @@ public class SimpleHttpResponse implements HttpResponse {
     private ReadWriteSelectorHandler handler;
     private static final String CRLF = "\r\n";
     private ResponseConfig responseConfig;
+    private boolean keepAlive;
 
-    public SimpleHttpResponse(ReadWriteSelectorHandler handler, HttpRequest request, ResponseConfig responseConfig) {
+    public SimpleHttpResponse(HttpRequest request, ResponseConfig responseConfig) {
         header.put("Server", "SIMPLEWEBSERVER/" + StringsUtil.VERSIONSTR);
-        this.handler = handler;
+        this.handler = request.getHandler();
         this.request = request;
         this.responseConfig = responseConfig;
         if (responseConfig.isGzip()) {
             header.put("Content-Encoding", "gzip");
         }
 
+        keepAlive = request.getHeader("Connection") != null && "keep-alive".equalsIgnoreCase(request.getHeader("Connection"));
+        if (keepAlive) {
+            getHeader().put("Connection", "keep-alive");
+        }
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
@@ -95,7 +99,7 @@ public class SimpleHttpResponse implements HttpResponse {
         }
     }
 
-    private void send(ByteArrayOutputStream outputStream, boolean close) {
+    public void send(ByteArrayOutputStream outputStream, boolean close) {
         try {
             byte[] b = outputStream.toByteArray();
             ByteBuffer byteBuffer = ByteBuffer.allocate(b.length);
@@ -346,5 +350,14 @@ public class SimpleHttpResponse implements HttpResponse {
 
     public Map<String, String> getHeader() {
         return header;
+    }
+
+    @Override
+    public void renderText(String text) {
+        try {
+            renderByMimeType("text", text.getBytes(responseConfig.getCharSet()));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
     }
 }
