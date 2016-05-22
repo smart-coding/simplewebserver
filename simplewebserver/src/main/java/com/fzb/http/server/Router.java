@@ -1,6 +1,7 @@
 package com.fzb.http.server;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,7 +12,7 @@ public class Router {
     public void addMapper(String urlPath, Class clazz) {
         Method[] methods = clazz.getDeclaredMethods();
         for (Method method : methods) {
-            if (method.getModifiers() == 1) {
+            if (method.getModifiers() == Modifier.PUBLIC) {
                 getRouterMap().put(urlPath + "/" + method.getName(), method);
             }
         }

@@ -4,7 +4,7 @@ import com.fzb.http.kit.*;
 import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.cookie.Cookie;
-import com.fzb.http.server.execption.ContentToBigException;
+import com.fzb.http.server.execption.ContentLengthTooLargeException;
 import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.session.HttpSession;
 import com.fzb.http.server.session.SessionUtil;
@@ -76,7 +76,7 @@ public class HttpDecoder implements IHttpDeCoder {
             wrapperParamStrToMap(request.queryStr);
             Integer dateLength = Integer.parseInt(request.header.get("Content-Length"));
             if (dateLength > ConfigKit.getMaxUploadSize()) {
-                throw new ContentToBigException("Content-Length outSide the max uploadSize "
+                throw new ContentLengthTooLargeException("Content-Length outSide the max uploadSize "
                         + ConfigKit.getMaxUploadSize());
             }
             request.dataBuffer = ByteBuffer.allocate(dateLength);
@@ -120,7 +120,11 @@ public class HttpDecoder implements IHttpDeCoder {
         } else {
             request.uri = tUrl;
         }
-        request.uri = URLDecoder.decode(request.uri, "UTF-8");
+        if (request.uri.contains("/")) {
+            request.uri = URLDecoder.decode(request.uri.substring(request.uri.indexOf("/")), "UTF-8");
+        } else {
+            request.uri = "/";
+        }
     }
 
     private void dealWithCookie() {

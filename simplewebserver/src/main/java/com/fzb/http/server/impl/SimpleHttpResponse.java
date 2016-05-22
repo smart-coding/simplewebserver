@@ -8,6 +8,7 @@ import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.cookie.Cookie;
 import com.fzb.http.server.execption.InternalException;
 import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
+import com.fzb.http.util.ServerInfo;
 import flexjson.JSONSerializer;
 
 import java.io.*;
@@ -34,7 +35,7 @@ public class SimpleHttpResponse implements HttpResponse {
     private boolean keepAlive;
 
     public SimpleHttpResponse(HttpRequest request, ResponseConfig responseConfig) {
-        header.put("Server", "SIMPLEWEBSERVER/" + StringsUtil.VERSIONSTR);
+        header.put("Server", ServerInfo.getName() + "/" + ServerInfo.getVersion());
         this.handler = request.getHandler();
         this.request = request;
         this.responseConfig = responseConfig;
@@ -160,11 +161,10 @@ public class SimpleHttpResponse implements HttpResponse {
             sb.append(he.getKey()).append(": ").append(he.getValue()).append(CRLF);
         }
         //deal cookie
-        if (responseConfig.isDisableCookie()) {
-
-        }
-        for (Cookie cookie : cookieList) {
-            sb.append("Set-Cookie: ").append(cookie).append(CRLF);
+        if (!responseConfig.isDisableCookie()) {
+            for (Cookie cookie : cookieList) {
+                sb.append("Set-Cookie: ").append(cookie).append(CRLF);
+            }
         }
         sb.append(CRLF);
         return sb.toString().getBytes();

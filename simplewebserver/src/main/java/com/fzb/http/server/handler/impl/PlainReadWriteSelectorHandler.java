@@ -104,4 +104,8 @@ public class PlainReadWriteSelectorHandler implements ReadWriteSelectorHandler {
     public int currentReadSize() {
         return currentReadSize;
     }
+
+    public SocketChannel getChannel() {
+        return sc;
+    }
 }

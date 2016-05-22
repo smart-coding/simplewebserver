@@ -5,10 +5,11 @@ import com.fzb.http.server.HttpMethod;
 import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
 import com.fzb.http.server.codec.IHttpDeCoder;
-import com.fzb.http.server.execption.ContentToBigException;
+import com.fzb.http.server.execption.ContentLengthTooLargeException;
 import com.fzb.http.server.execption.InternalException;
 import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.handler.impl.PlainReadWriteSelectorHandler;
+import com.fzb.http.util.ServerInfo;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -68,7 +69,7 @@ public class SimpleServer implements ISocketServer {
         if (selector == null) {
             return;
         }
-        LOGGER.info("SimplerWebServer is run versionStr -> " + StringsUtil.VERSIONSTR);
+        LOGGER.info("SimplerWebServer is run versionStr -> " + ServerInfo.getVersion());
         EnvKit.savePid(PathKit.getRootPath() + "/sim.pid");
         while (true) {
             try {
@@ -112,17 +113,21 @@ public class SimpleServer implements ISocketServer {
                                     codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), handler);
                                     serverContext.getHttpDeCoderMap().put(channel, codec);
                                 }
-                            } catch (Exception e) {
-                                if (!(e instanceof EOFException)) {
-                                    e.printStackTrace();
-                                }
+                            } catch (EOFException e) {
+                                //do nothing
+                                key.channel().close();
+                                key.cancel();
+                            } catch (ContentLengthTooLargeException e) {
                                 if (handler != null && codec != null) {
                                     HttpResponse response = new SimpleHttpResponse(codec.getRequest(), getDefaultResponseConfig());
-                                    if (e instanceof ContentToBigException) {
-                                        response.renderCode(413);
-                                    } else if (e instanceof InternalException) {
-                                        response.renderCode(500);
-                                    }
+                                    response.renderCode(413);
+                                }
+                                key.channel().close();
+                                key.cancel();
+                            } catch (Exception e) {
+                                if (handler != null && codec != null) {
+                                    HttpResponse response = new SimpleHttpResponse(codec.getRequest(), getDefaultResponseConfig());
+                                    response.renderCode(500);
                                 }
                                 key.channel().close();
                                 key.cancel();

@@ -20,9 +20,11 @@ public class ServerInfo {
             try {
                 properties.load(inputStream);
                 name = properties.get("server.name").toString();
-                version = properties.get("server.version").toString();
+                if (properties.get("server.version") != null && !"".equals(properties.get("server.version"))) {
+                    version = properties.get("server.version").toString();
+                }
                 if (properties.get("server.buildTime") != null && !"".equals(properties.get("server.buildTime"))) {
-                    time = new SimpleDateFormat("YYYY-MM-dd:hh:mm").parse(properties.get("server.buildTime").toString());
+                    time = new SimpleDateFormat("yyyy-MM-dd hh:mm").parse(properties.get("server.buildTime").toString());
                 }
             } catch (IOException | ParseException e) {
                 e.printStackTrace();
@@ -32,7 +34,7 @@ public class ServerInfo {
             name = "SimpleWebServer";
         }
         if (version == null) {
-            version = "1.x.x-dev";
+            version = "1.4.x-dev";
         }
         if (time == null) {
             time = new Date();

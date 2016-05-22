@@ -1,7 +1,6 @@
 package com.fzb.http.server;
 
 import com.fzb.http.kit.LoggerUtil;
-import com.fzb.http.kit.PathKit;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -18,8 +17,9 @@ public class MethodInvokeInterceptor implements Interceptor {
     @Override
     public boolean doInterceptor(HttpRequest request, HttpResponse response) {
         // 在请求路径中存在了. 认为其为文件
-        if (request.getUri().contains(".")) {
-            response.writeFile(new File(PathKit.getStaticPath() + request.getUri()));
+        File file = new File(request.getRealPath() + request.getUri());
+        if (file.exists() || request.getUri().contains(".")) {
+            response.writeFile(file);
             return false;
         }
         Method method;
@@ -33,7 +33,6 @@ public class MethodInvokeInterceptor implements Interceptor {
                 method = router.getMethod(index);
             }
         }
-        LOGGER.info("invoke method " + method);
         if (method == null) {
             if (request.getUri().endsWith("/")) {
                 response.renderHtml(request.getUri() + "index.html");
@@ -53,9 +52,12 @@ public class MethodInvokeInterceptor implements Interceptor {
                 controller.request = request;
                 controller.response = response;
             }
+            LOGGER.info("invoke method " + method);
             method.invoke(controller);
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, e.getMessage());
+            response.renderCode(500);
+            LOGGER.log(Level.SEVERE, "invoke error ", e);
+            return false;
         }
         return true;
     }

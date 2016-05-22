@@ -10,6 +10,7 @@ public class Cookie {
     private String path = "/";
     private Integer maxAge;
     private boolean create;
+    private boolean httpOnly;
 
     public Cookie(boolean create) {
         this.setCreate(create);
@@ -34,8 +35,8 @@ public class Cookie {
 
     public static String getJSessionId(String cookieStr) {
         String[] kvArr = cookieStr.split(";");
-        for (int i = 0; i < kvArr.length; i++) {
-            String[] kv = kvArr[i].trim().split("=");
+        for (String aKvArr : kvArr) {
+            String[] kv = aKvArr.trim().split("=");
             if (JSESSIONID.equals(kv[0])) {
                 return (kv[1]);
             }
@@ -77,11 +78,16 @@ public class Cookie {
 
     @Override
     public String toString() {
+        String cookieStr;
         if (maxAge == null) {
-            return name + "=" + value + ";" + "Path=" + path + ";HttpOnly";
+            cookieStr = name + "=" + value + ";" + "Path=" + path;
         } else {
-            return name + "=" + value + ";" + "Path=" + path + ";max-age=" + maxAge + ";HttpOnly";
+            cookieStr = name + "=" + value + ";" + "Path=" + path + ";max-age=" + maxAge;
         }
+        if (httpOnly) {
+            cookieStr += ";HttpOnly";
+        }
+        return cookieStr;
     }
 
     public boolean isCreate() {
@@ -98,5 +104,13 @@ public class Cookie {
 
     public void setMaxAge(Integer maxAge) {
         this.maxAge = maxAge;
+    }
+
+    public boolean isHttpOnly() {
+        return httpOnly;
+    }
+
+    public void setHttpOnly(boolean httpOnly) {
+        this.httpOnly = httpOnly;
     }
 }
