@@ -18,7 +18,7 @@ public class MethodInvokeInterceptor implements Interceptor {
     public boolean doInterceptor(HttpRequest request, HttpResponse response) {
         // 在请求路径中存在了. 认为其为文件
         File file = new File(request.getRealPath() + request.getUri());
-        if (file.exists() || request.getUri().contains(".")) {
+        if (file.exists() && !file.isDirectory() || request.getUri().contains(".")) {
             response.writeFile(file);
             return false;
         }
