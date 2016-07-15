@@ -77,7 +77,7 @@ public class HttpRequestHandler extends Thread {
                     response.renderCode(404);
                 }
             }
-            LOGGER.info(request.getUri() + " " + (System.currentTimeMillis() - request.getCreateTime()) + " ms");
+            LOGGER.info(request.getUrl() + " " + (System.currentTimeMillis() - request.getCreateTime()) + " ms");
             serverContext.getHttpDeCoderMap().remove(key.channel());
         }
     }

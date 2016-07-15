@@ -6,7 +6,6 @@ import com.fzb.http.server.HttpResponse;
 import com.fzb.http.server.ISocketServer;
 import com.fzb.http.server.codec.IHttpDeCoder;
 import com.fzb.http.server.execption.ContentLengthTooLargeException;
-import com.fzb.http.server.execption.InternalException;
 import com.fzb.http.server.handler.api.ReadWriteSelectorHandler;
 import com.fzb.http.server.handler.impl.PlainReadWriteSelectorHandler;
 import com.fzb.http.util.ServerInfo;
@@ -58,6 +57,7 @@ public class SimpleServer implements ISocketServer {
         if (serverConfig.getPort() == 0) {
             serverConfig.setPort(ConfigKit.getServerPort());
         }
+        serverContext.setServerConfig(serverConfig);
     }
 
     public ReadWriteSelectorHandler getReadWriteSelectorHandlerInstance(SocketChannel channel, SelectionKey key) throws IOException {
@@ -97,7 +97,7 @@ public class SimpleServer implements ISocketServer {
                             try {
                                 if (codec == null) {
                                     handler = getReadWriteSelectorHandlerInstance(channel, key);
-                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), handler);
+                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), serverContext, handler);
                                     serverContext.getHttpDeCoderMap().put(channel, codec);
                                 } else {
                                     handler = codec.getRequest().getHandler();
@@ -110,7 +110,7 @@ public class SimpleServer implements ISocketServer {
                                 }
                                 serverConfig.getExecutor().execute(new HttpRequestHandler(codec, key, serverConfig, getDefaultResponseConfig(), serverContext));
                                 if (codec.getRequest().getMethod() != HttpMethod.CONNECT) {
-                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), handler);
+                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), serverContext, handler);
                                     serverContext.getHttpDeCoderMap().put(channel, codec);
                                 }
                             } catch (EOFException e) {

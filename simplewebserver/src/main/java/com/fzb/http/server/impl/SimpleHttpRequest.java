@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 public class SimpleHttpRequest implements HttpRequest {
 
     private static final Logger LOGGER = LoggerUtil.getLogger(SimpleHttpRequest.class);
+    private ServerContext serverContext;
 
     protected SocketAddress ipAddr;
     protected Map<String, String> header = new HashMap<String, String>();
@@ -41,9 +42,10 @@ public class SimpleHttpRequest implements HttpRequest {
     private long createTime;
     protected StringBuilder headerSb = new StringBuilder();
 
-    protected SimpleHttpRequest(long createTime, ReadWriteSelectorHandler handler) {
+    protected SimpleHttpRequest(long createTime, ReadWriteSelectorHandler handler, ServerContext serverContext) {
         this.handler = handler;
         this.createTime = createTime;
+        this.serverContext = serverContext;
     }
 
     @Override
@@ -200,5 +202,15 @@ public class SimpleHttpRequest implements HttpRequest {
             buffer.put(dataBuffer.array());
             return buffer;
         }
+    }
+
+    @Override
+    public ServerConfig getServerConfig() {
+        return getServerContext().getServerConfig();
+    }
+
+    @Override
+    public ServerContext getServerContext() {
+        return serverContext;
     }
 }

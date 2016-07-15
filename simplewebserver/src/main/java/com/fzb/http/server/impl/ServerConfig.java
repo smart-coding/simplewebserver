@@ -6,12 +6,16 @@ import com.fzb.http.server.Router;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ServerConfig {
+
+    private final Map<String, String> staticResourceMapper = new ConcurrentHashMap<>();
 
     private static final Logger LOGGER = LoggerUtil.getLogger(ServerConfig.class);
 
@@ -29,7 +33,7 @@ public class ServerConfig {
 
     private Router router = new Router();
 
-    private List<Class<Interceptor>> interceptors = new ArrayList<>();
+    private final List<Class<Interceptor>> interceptors = new ArrayList<>();
 
     public boolean isSsl() {
         return isSsl;
@@ -127,4 +131,13 @@ public class ServerConfig {
             e.printStackTrace();
         }
     }
+
+    public void addStaticResourceMapper(String path, String locationPath) {
+        staticResourceMapper.put(path, locationPath);
+    }
+
+    public Map<String, String> getStaticResourceMapper() {
+        return staticResourceMapper;
+    }
+
 }

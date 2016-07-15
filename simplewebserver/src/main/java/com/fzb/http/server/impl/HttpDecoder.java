@@ -27,8 +27,8 @@ public class HttpDecoder implements IHttpDeCoder {
     private SimpleHttpRequest request;
 
 
-    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig, ReadWriteSelectorHandler handler) {
-        this.request = new SimpleHttpRequest(System.currentTimeMillis(), handler);
+    public HttpDecoder(SocketAddress socketAddress, RequestConfig requestConfig, ServerContext serverContext, ReadWriteSelectorHandler handler) {
+        this.request = new SimpleHttpRequest(System.currentTimeMillis(), handler, serverContext);
         this.request.requestConfig = requestConfig;
         this.request.ipAddr = socketAddress;
         if (requestConfig.isSsl()) {
@@ -105,7 +105,7 @@ public class HttpDecoder implements IHttpDeCoder {
         }
         // 先得到请求头信息
         for (int i = 1; i < headerArr.length; i++) {
-            request.header.put(headerArr[i].split(":")[0], headerArr[i].substring(headerArr[i].indexOf(":") + 2));
+            dealRequestHeaderString(headerArr[i]);
         }
         String tUrl = request.uri = pHeader.split(" ")[1];
         // just for some proxy-client
@@ -124,6 +124,12 @@ public class HttpDecoder implements IHttpDeCoder {
             request.uri = URLDecoder.decode(request.uri.substring(request.uri.indexOf("/")), "UTF-8");
         } else {
             request.uri = "/";
+        }
+    }
+
+    private void dealRequestHeaderString(String str) {
+        if (str.contains(":")) {
+            request.header.put(str.split(":")[0], str.substring(str.indexOf(":") + 1).trim());
         }
     }
 
@@ -195,12 +201,10 @@ public class HttpDecoder implements IHttpDeCoder {
                     //ByteArrayOutputStream bout=new ByteArrayOutputStream(d);
                     StringBuilder sb2 = new StringBuilder();
                     try {
-                        String tstr;
-                        while ((tstr = bin.readLine()) != null && !"".equals(tstr)) {
-                            sb2.append(tstr).append(CRLF);
-                            if (tstr.contains(":")) {
-                                request.header.put(tstr.split(":")[0], tstr.substring(tstr.indexOf(":") + 2));
-                            }
+                        String headerStr;
+                        while ((headerStr = bin.readLine()) != null && !"".equals(headerStr)) {
+                            sb2.append(headerStr).append(CRLF);
+                            dealRequestHeaderString(headerStr);
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
