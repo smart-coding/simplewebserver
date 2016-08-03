@@ -20,6 +20,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SimpleServer implements ISocketServer {
@@ -85,9 +86,14 @@ public class SimpleServer implements ISocketServer {
                     } else if (key.isAcceptable()) {
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
                         channel = server.accept();
-                        if (channel != null) {
-                            channel.configureBlocking(false);
-                            channel.register(selector, SelectionKey.OP_READ);
+                        try {
+                            if (channel != null) {
+                                channel.configureBlocking(false);
+                                channel.register(selector, SelectionKey.OP_READ);
+                            }
+                        } catch (IOException e) {
+                            LOGGER.log(Level.FINE, "accept connect error", e);
+                            server.socket().close();
                         }
                     } else if (key.isReadable()) {
                         channel = (SocketChannel) key.channel();
