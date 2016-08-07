@@ -123,6 +123,7 @@ public class HttpDecoder implements IHttpDeCoder {
         if (request.uri.contains("/")) {
             request.uri = URLDecoder.decode(request.uri.substring(request.uri.indexOf("/")), "UTF-8");
         } else {
+            request.getHeaderMap().put("Host", request.uri);
             request.uri = "/";
         }
     }
