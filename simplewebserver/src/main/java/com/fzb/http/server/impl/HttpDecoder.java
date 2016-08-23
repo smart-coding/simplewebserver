@@ -72,21 +72,26 @@ public class HttpDecoder implements IHttpDeCoder {
         // 存在2种情况
         // 1,POST 提交的数据一次性读取完成。
         // 2,POST 提交的数据一次性读取不完。
-        else if (request.method == HttpMethod.POST) {
+        else if (request.method == HttpMethod.POST || request.method == HttpMethod.DELETE || request.method == HttpMethod.PUT) {
             wrapperParamStrToMap(request.queryStr);
-            Integer dateLength = Integer.parseInt(request.header.get("Content-Length"));
-            if (dateLength > ConfigKit.getMaxUploadSize()) {
-                throw new ContentLengthTooLargeException("Content-Length outSide the max uploadSize "
-                        + ConfigKit.getMaxUploadSize());
+            if (request.header.get("Content-Length") != null) {
+                Integer dateLength = Integer.parseInt(request.header.get("Content-Length"));
+                if (dateLength > ConfigKit.getMaxUploadSize()) {
+                    throw new ContentLengthTooLargeException("Content-Length outSide the max uploadSize "
+                            + ConfigKit.getMaxUploadSize());
+                }
+                request.dataBuffer = ByteBuffer.allocate(dateLength);
+                int headerLength = httpHeader.getBytes().length + split.getBytes().length;
+                byte[] remain = HexConversionUtil.subBytes(data, headerLength, data.length - headerLength);
+                request.dataBuffer.put(remain);
+                flag = !request.dataBuffer.hasRemaining();
+                if (flag) {
+                    dealPostData();
+                }
+            } else {
+                flag = true;
             }
-            request.dataBuffer = ByteBuffer.allocate(dateLength);
-            int headerLength = httpHeader.getBytes().length + split.getBytes().length;
-            byte[] remain = HexConversionUtil.subBytes(data, headerLength, data.length - headerLength);
-            request.dataBuffer.put(remain);
-            flag = !request.dataBuffer.hasRemaining();
-            if (flag) {
-                dealPostData();
-            }
+
         }
         if (!request.requestConfig.isDisableCookie()) {
             // deal with cookie
@@ -125,6 +130,7 @@ public class HttpDecoder implements IHttpDeCoder {
         } else {
             request.getHeaderMap().put("Host", request.uri);
             request.uri = "/";
+            request.header.put("Host", tUrl);
         }
     }
 
