@@ -13,6 +13,7 @@ import com.fzb.http.util.ServerInfo;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -71,7 +72,11 @@ public class SimpleServer implements ISocketServer {
             return;
         }
         LOGGER.info("SimplerWebServer is run versionStr -> " + ServerInfo.getVersion());
-        EnvKit.savePid(PathKit.getRootPath() + "/sim.pid");
+        try {
+            EnvKit.savePid(PathKit.getRootPath() + "/sim.pid");
+        } catch (Error e) {
+            LOGGER.log(Level.WARNING, "save Pid error", e);
+        }
         while (true) {
             try {
                 selector.select();
@@ -85,25 +90,27 @@ public class SimpleServer implements ISocketServer {
                         continue;
                     } else if (key.isAcceptable()) {
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
-                        channel = server.accept();
                         try {
+                            channel = server.accept();
                             if (channel != null) {
                                 channel.configureBlocking(false);
                                 channel.register(selector, SelectionKey.OP_READ);
                             }
                         } catch (IOException e) {
-                            LOGGER.log(Level.FINE, "accept connect error", e);
+                            LOGGER.log(Level.FINE, "accept connnect error", e);
                             server.socket().close();
                         }
+
                     } else if (key.isReadable()) {
                         channel = (SocketChannel) key.channel();
                         if (channel != null && channel.isOpen()) {
                             IHttpDeCoder codec = serverContext.getHttpDeCoderMap().get(channel);
                             ReadWriteSelectorHandler handler = null;
+                            SocketAddress socketAddress = channel.socket().getRemoteSocketAddress();
                             try {
                                 if (codec == null) {
                                     handler = getReadWriteSelectorHandlerInstance(channel, key);
-                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), serverContext, handler);
+                                    codec = new HttpDecoder(socketAddress, getDefaultRequestConfig(), serverContext, handler);
                                     serverContext.getHttpDeCoderMap().put(channel, codec);
                                 } else {
                                     handler = codec.getRequest().getHandler();
@@ -116,7 +123,7 @@ public class SimpleServer implements ISocketServer {
                                 }
                                 serverConfig.getExecutor().execute(new HttpRequestHandler(codec, key, serverConfig, getDefaultResponseConfig(), serverContext));
                                 if (codec.getRequest().getMethod() != HttpMethod.CONNECT) {
-                                    codec = new HttpDecoder(channel.getRemoteAddress(), getDefaultRequestConfig(), serverContext, handler);
+                                    codec = new HttpDecoder(socketAddress, getDefaultRequestConfig(), serverContext, handler);
                                     serverContext.getHttpDeCoderMap().put(channel, codec);
                                 }
                             } catch (EOFException e) {

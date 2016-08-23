@@ -19,12 +19,17 @@ public class PathKit {
             path = new File(PathKit.class.getClass().getResource("/").getPath()).getParentFile().getParentFile().toString();
 
         } else {
-            String thisPath = PathKit.class.getProtectionDomain().getCodeSource().getLocation().getPath().replace("\\", "/");
-            if ("/".equals(File.separator)) {
-                path = thisPath.substring(0, thisPath.lastIndexOf('/'));
+            if (PathKit.class.getProtectionDomain() != null) {
+                String thisPath = PathKit.class.getProtectionDomain().getCodeSource().getLocation().getPath().replace("\\", "/");
+                if ("/".equals(File.separator)) {
+                    path = thisPath.substring(0, thisPath.lastIndexOf('/'));
+                } else {
+                    path = thisPath.substring(1, thisPath.lastIndexOf('/'));
+                }
             } else {
-                path = thisPath.substring(1, thisPath.lastIndexOf('/'));
+                path = "/";
             }
+
         }
         return path;
     }

@@ -39,7 +39,9 @@ public class LoggerUtil {
     public static Logger getLogger(Class clazz) {
         Logger logger = Logger.getLogger(clazz.getName());
         try {
-            logger.addHandler(fileHandler);
+            if (fileHandler != null) {
+                logger.addHandler(fileHandler);
+            }
             logger.setLevel(Level.ALL);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, recordStackTraceMsg(e));
