@@ -128,22 +128,11 @@ public class SimpleServer implements ISocketServer {
                                 }
                             } catch (EOFException e) {
                                 //do nothing
-                                key.channel().close();
-                                key.cancel();
+                                handleException(key, codec, null, 500);
                             } catch (ContentLengthTooLargeException e) {
-                                if (handler != null && codec != null) {
-                                    HttpResponse response = new SimpleHttpResponse(codec.getRequest(), getDefaultResponseConfig());
-                                    response.renderCode(413);
-                                }
-                                key.channel().close();
-                                key.cancel();
+                                handleException(key, codec, handler, 413);
                             } catch (Exception e) {
-                                if (handler != null && codec != null) {
-                                    HttpResponse response = new SimpleHttpResponse(codec.getRequest(), getDefaultResponseConfig());
-                                    response.renderCode(500);
-                                }
-                                key.channel().close();
-                                key.cancel();
+                                handleException(key, codec, handler, 500);
                             }
                         }
                     }
@@ -152,6 +141,24 @@ public class SimpleServer implements ISocketServer {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void handleException(SelectionKey key, IHttpDeCoder codec, ReadWriteSelectorHandler handler, int errorCode) {
+        try {
+            if (handler != null && codec != null && codec.getRequest() != null) {
+                HttpResponse response = new SimpleHttpResponse(codec.getRequest(), getDefaultResponseConfig());
+                response.renderCode(errorCode);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "error", e);
+        } finally {
+            try {
+                key.channel().close();
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "error", e);
+            }
+            key.cancel();
         }
     }
 

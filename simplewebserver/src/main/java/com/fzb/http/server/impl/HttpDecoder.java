@@ -130,7 +130,6 @@ public class HttpDecoder implements IHttpDeCoder {
         } else {
             request.getHeaderMap().put("Host", request.uri);
             request.uri = "/";
-            request.header.put("Host", tUrl);
         }
     }
 
