@@ -74,7 +74,7 @@ public class SimpleServer implements ISocketServer {
         LOGGER.info("SimplerWebServer is run versionStr -> " + ServerInfo.getVersion());
         try {
             EnvKit.savePid(PathKit.getRootPath() + "/sim.pid");
-        } catch (Error e) {
+        } catch (Throwable e) {
             LOGGER.log(Level.WARNING, "save Pid error", e);
         }
         while (true) {

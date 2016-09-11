@@ -9,29 +9,37 @@ import java.io.File;
  */
 public class PathKit {
 
+    private static String ROOT_PATH = "";
+
+    public static void setRootPath(String rootPath) {
+        ROOT_PATH = rootPath;
+    }
+
     public static String getConfPath() {
         return getRootPath() + "/conf/";
     }
 
     public static String getRootPath() {
-        String path;
-        if (PathKit.class.getResource("/") != null) {
-            path = new File(PathKit.class.getClass().getResource("/").getPath()).getParentFile().getParentFile().toString();
-
+        if (ROOT_PATH != null && ROOT_PATH.length() > 0) {
+            return ROOT_PATH;
         } else {
-            if (PathKit.class.getProtectionDomain() != null) {
-                String thisPath = PathKit.class.getProtectionDomain().getCodeSource().getLocation().getPath().replace("\\", "/");
-                if ("/".equals(File.separator)) {
-                    path = thisPath.substring(0, thisPath.lastIndexOf('/'));
-                } else {
-                    path = thisPath.substring(1, thisPath.lastIndexOf('/'));
-                }
+            String path;
+            if (PathKit.class.getResource("/") != null) {
+                path = new File(PathKit.class.getClass().getResource("/").getPath()).getParentFile().getParentFile().toString();
             } else {
-                path = "/";
+                if (PathKit.class.getProtectionDomain() != null) {
+                    String thisPath = PathKit.class.getProtectionDomain().getCodeSource().getLocation().getPath().replace("\\", "/");
+                    if ("/".equals(File.separator)) {
+                        path = thisPath.substring(0, thisPath.lastIndexOf('/'));
+                    } else {
+                        path = thisPath.substring(1, thisPath.lastIndexOf('/'));
+                    }
+                } else {
+                    path = "/";
+                }
             }
-
+            return path;
         }
-        return path;
     }
 
     public static String getConfFile(String file) {
